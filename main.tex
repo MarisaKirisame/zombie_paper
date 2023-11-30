@@ -205,27 +205,7 @@
 	\subsection{Cache Policy(2pg)}
 	\section{Eval(3pg)}
 	\section{Case Study(2pg)}
-	\section{RW(2pg)}
-	\subsection{Memory-Constrained Algorithm}
-	Memory Limit is a common problem. Lots of different subfields of CS had experienced such problem, and developed specialized algorithm that trade space for time, by recomputing, for their own need. \todo{cite}. In particular, a famous algorithm, TREEVERSE, had been re-discovered independently multiple times in unrelated subfields.
-	
-	Keeping uncomputation at each subfield not only cause multiple re-discovery and re-implementation, wasting valuable researcher/programmer time, but also come short in integration. Suppose a complex, memory-hungry software have 2 sub-parts, both of which are memory hungry. How much uncompute responsibility should each part take? What happens if two part depend on each other?
-	\subsection{Pebbling}
-	Space time tradeoff is a known-topic in Theoretical Computer Science. It is mostly modeled as a "pebble game" \todo{quickly explain}. It had been known that this problem is NP-complete and inapproximable. There are also generic result in this space. Hopcroft prove that for any program that take N time, it could be modified to take O(N / log(N)) space. However, the proof is non-constructive, and thus does not help building an automatic runtime like ours.
-	
-	Our work mostly focus on the overhead problem - how to minimize the overhead of recording metadata needed for recomputation. How to make an API that is generic yet embeddable. In another words - our work is orthgonal to advances in pebble game. In fact, one could imagine replacing our cache policy with some of those algorithms.
-	
-	We also provide a greedy cache policy that is both fast and make reasonably good decision on the list of benchmark, both real and synthetic, provided below, since the theoretical result is weak and non-constructive. There are some specialized result of pebble game on planar graph and on tree. One could imagine upon detecting planar graph/tree, switching from our cache policy to the theoretically optimal ones.
-	\subsection{Memoization}
-	Uncomputation is the dual to Memoization.
-	\subsection{Garbage Collection}
-	GC collect provably dead value, but we can also collect not-provably dead value, and even alive value.
-	
-	It is like optimistic lock vs pessmistic lock.
-	\subsection{Compression}
-	Uncomputation is, fundamentally speaking, a form of compression.
-	
-	Pigeon hole principle mean it is fundamentally impossible to have a generic compression algorithm. Uncomputation exploit the inductive bias that a program pointer is smaller then its memory consumption is larger.
+	\input{related}
 	\section{Maybe?}
 	\subsection{Constant Optimization}
 	\subsection{Tail Call}
