@@ -1,0 +1,34 @@
+\subsection{Motivation(1.5pg)}
+\section{Intro}
+Program consume memory. Program might use too much memory:
+\begin{itemize}
+	\item The input might be huge. Editing a file require loading the whole file into memory; Autocomplete load and parse the whole codebase; Image editors will keep multiple replica of similar images.
+	\item Exploding intermediate state: Model checker and Chess bot search through a huge state space, Compiler and Interprocedural analysis expand the AST, Deep Learning/Backpropagation create and keep intermediate value.
+	\item Low memory limit. wasm have a memory limit of 2GB, embedded device or poor people may have device with lower ram. A personal computer might be running multiple programs, which must contend for a fixed memory limit.
+\end{itemize}
+
+Even when there is enough memory, it is still beneficial to use less memory. Operating System use memory for file cache, the program may have software cache, garbage collector fire less often give more free space, and extra space could be used to increase load or to execute other process.
+
+\todo{Why not buy more memory?}
+
+However, the only generic technique for reducing memory consumption, swapping, come with great drawback. Swapping move a chunk of data from main memory onto disk, and upon re-requesting it, move the data from disk back into main memory. It degrade performance significantly as disk is far slower then CPU and main memory, and it is especially bad for functional programs as most values is functional programs are boxed, they typically have less cache locality, exacerbated by swapping which operate on pages granularity.
+
+We propose uncomputation, a technique to reduce memory consumption for arbitrary purely functional programs. When needed, uncomputation select some values in the object graph according to cache policy, reverting it back into thunk, releasing memory until it is needed again, in which case it will recompute said values and replacing the thunk with the values.
+
+The idea of uncomputation is not new, ... But there is no fully automatic generic solution.
+
+We introduce a library, zombie, which enable uncomputation for arbitrary purely functional program.
+\subsection{Guarantee(0.5pg)}
+There are multiple guarantees our approach give.
+
+Correctness guarantee: uncomputing will not effect the final result (preservation), and will not be in an infinite loop (progress)
+
+Asymptotic guarantee: O(1) access time for all in-memory objects, and O(1) space for each in-memory objects (O(0) space for uncomputed objects)
+\subsection{Key Idea(1pg)}
+\todo{I dont like this section. feels like spoiler.}
+There are 3 key insights that enable the above guarantee:
+\begin{itemize}
+	\item Use a monadic API \todo{this is a bit week but is a dependency}. A monadic API give a generic yet turing-complete \todo{better word} method of extending a language. Furthermore it immediately ask an interesting question: what is the meaning of Zombie<Zombie<X>>? likewise, what is join?
+	\item A global clock increasing on return/bind invocation. This not only give a way to quickly detect same objects for hashconsing, but as opposed to classical hash consing, the key itself have semantic meaning: < denote happens-before.
+	\item Recomputing A also recompute what is inside A. This mean we can forget about some inner thunk, as long as we can redirect the pointers to such thunk to an outer thunk. One possibility is to track backpointers and fix them, but this take significantly more time and space. Instead, Track function exit time too. Entering and exiting form a range, and two separate range either form a nested relationship or disjoint relationship. We can then design a datastructure, such that lookup failure return a match one-level above.
+\end{itemize}

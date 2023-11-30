@@ -46,6 +46,7 @@
 %%
 %%
 \documentclass[acmsmall]{acmart}
+\usepackage{mathpartir}
 
 %%
 %% \BibTeX command to typeset BibTeX logo in the docs
@@ -104,11 +105,12 @@
 %% the next command will enable that style.
 %%\citestyle{acmauthoryear}
 
+\usepackage{xcolor}
+\newcommand\todo[1]{\textcolor{red}{#1}}
 
 %%
 %% end of the preamble, start of the body of the document source.
 \begin{document}
-	
 	%%
 	%% The "title" command has an optional parameter,
 	%% allowing the author to define a "short title" to be used in page headers.
@@ -127,8 +129,8 @@
 	\affiliation{%
 		\institution{University of Utah}
 		\streetaddress{P.O. Box 1212}
-		\city{Dublin}
-		\state{Ohio}
+		\city{Salt Lake City}
+		\state{Utah}
 		\country{USA}
 		\postcode{43017-6221}
 	}
@@ -139,19 +141,18 @@
 	%% other information printed in the page headers. This command allows
 	%% the author to define a more concise list
 	%% of authors' names for this purpose.
-	\renewcommand{\shortauthors}{Trovato et al.}
-	
+	\renewcommand{\shortauthors}{Kirisame et al.}
 	%%
 	%% The abstract is a short summary of the work to be presented in the
 	%% article.
 	\begin{abstract}
-		Program execution need memory. Program may run out of memory for multiple reasons: big dataset, exploding intermediate state, the machine have less ram then others. When this happens, the program either get killed, or the operating system swaps, significantly degrading the performance.
-		We proposing a technique, Uncomputation, that allow the program to continue running even after breaching the memory limit, without a significant performance degrade like the one introduced by swapping.
-		Uncomputation work by turning computed values back into thunk, and upon needing the thunk, computing and storing them back.
-		A naive implementation of uncomputation will face multiple problems. Among them, the most crucial and the most challenging one is breadcrumb. After a value is uncomputed, it's memory can be released but extra memory, breadcrumb, is needed to recompute the value back when needed.
-		The smaller a value is, the breadcrumb it leave will take up a larger portion of memory, until the size of a value is less then or equal to that of the size of breadcrumb, in which uncomputing give no, or even negative memory benefit at all.
+		Program execution need memory. Program may run out of memory for multiple reasons: big dataset, exploding intermediate state, the machine have less memory then others, etc. When this happens, the program either get killed, or the operating system swaps, significantly degrading the performance.
+		We propose a technique, uncomputation, that allow the program to continue running smoothly even after breaching the memory limit, without a significant performance degradation.
+		Uncomputation work by turning computed values back into thunk, and upon re-requesting the thunk, computing and storing them back.
+		A naive implementation of uncomputation will face multiple problems. Among them, the most crucial and the most challenging one is that of breadcrumb. After a value is uncomputed, it's memory can be released but extra memory, breadcrumb, is needed to recompute the value back when needed.
+		The smaller a value is, the breadcrumb it leave will take up a larger portion of memory, until the size of a value is less then or equal to that of the size of breadcrumb, so uncomputing save no memory.
 		The more value uncomputed, the more breadcrumb they leave behind, until most of the memory is used to record breadcrumb. This prohibit asymptotic improvement commonly seen in memory-cosntrainted algorithms.
-		We present a runtime system, zombie, implemented as a library, that is absolved of the above breadcrumb problem, seemingly storing recompute information in 0-bits and violating information theory.
+		We present a runtime system, implemented as a library, that is absolved of the above breadcrumb problem, seemingly storing recompute information in 0-bits and violating information theory.
 	\end{abstract}
 	
 	%%
@@ -173,31 +174,62 @@
 	%% This command processes the author and affiliation and title
 	%% information and builds the first part of the formatted document.
 	\maketitle
+	\input{intro}
+	\section{Uncomputation(5pg)}
+	\subsection{Motivation}
+	\subsection{Strawman}
+	\subsubsection{Semantic}
+	\subsection{Guarantee}
+	\subsection{Problems}
+	While the high-level idea seems straightforward, there are multiple subtle questions: 
+	\begin{itemize}
+		\item Recursiveness. A value, for example, a list, might be recursive. Furthermore, there might be sharing inside such datastructure. In such a case, how do we measure the size of a value, which is a valuable statistics guiding what to uncompute?
+		\item Partialness. Suppose a list is generated via anamorphism. We might want to uncompute the head of the list, but keeping some intermediate node inside the list.
+		When recomputing said list, we need to be able to retrieve such intermediate node, to
+		avoid spending extra time to recompute them, and extra memory to store them twice.
+		\item Uncomputation candidates. Which value should we pick to uncompute?
+		\item Breadcrumb. After a value is uncomputed, we need to store information needed to recompute said value. This become a bottleneck when most value is uncomputed, or when each value is small.
+	\end{itemize}
 	
-	\section{Introduction}
-	Program use memory.
+	We present Zombie, a library for uncomptuation, alongside solutions to the questions above.
+	\subsubsection{recursiveness}
+	\subsubsection{doppelganger}
+	\subsubsection{breadcrumb}
+	\section{Plant vs Zombie(8pg)}
+	\subsection{Tock Tree}
+	\subsection{Recomputation}
+	\subsection{Correctness Gurantee}
+	\subsubsection{Progress}
+	\subsubsection{Preservation}
+	\subsection{Asymptotic}
+	\subsection{Cache Policy(2pg)}
+	\section{Eval(3pg)}
+	\section{Case Study(2pg)}
+	\section{RW(2pg)}
+	\subsection{Memory-Constrained Algorithm}
+	Memory Limit is a common problem. Lots of different subfields of CS had experienced such problem, and developed specialized algorithm that trade space for time, by recomputing, for their own need. \todo{cite}. In particular, a famous algorithm, TREEVERSE, had been re-discovered independently multiple times in unrelated subfields.
 	
-	Program may not have enough memory.
+	Keeping uncomputation at each subfield not only cause multiple re-discovery and re-implementation, wasting valuable researcher/programmer time, but also come short in integration. Suppose a complex, memory-hungry software have 2 sub-parts, both of which are memory hungry. How much uncompute responsibility should each part take? What happens if two part depend on each other?
+	\subsection{Pebbling}
+	Space time tradeoff is a known-topic in Theoretical Computer Science. It is mostly modeled as a "pebble game" \todo{quickly explain}. It had been known that this problem is NP-complete and inapproximable. There are also generic result in this space. Hopcroft prove that for any program that take N time, it could be modified to take O(N / log(N)) space. However, the proof is non-constructive, and thus does not help building an automatic runtime like ours.
 	
-	Multiple reason:
-	Huge input - opening a file of multiple gigabytes will hang editors
+	Our work mostly focus on the overhead problem - how to minimize the overhead of recording metadata needed for recomputation. How to make an API that is generic yet embeddable. In another words - our work is orthgonal to advances in pebble game. In fact, one could imagine replacing our cache policy with some of those algorithms.
 	
-	Large intermediate state - model checker, chess bots, etc
+	We also provide a greedy cache policy that is both fast and make reasonably good decision on the list of benchmark, both real and synthetic, provided below, since the theoretical result is weak and non-constructive. There are some specialized result of pebble game on planar graph and on tree. One could imagine upon detecting planar graph/tree, switching from our cache policy to the theoretically optimal ones.
+	\subsection{Memoization}
+	Uncomputation is the dual to Memoization.
+	\subsection{Garbage Collection}
+	GC collect provably dead value, but we can also collect not-provably dead value, and even alive value.
 	
-	Small machine - poor people, embedded device
+	It is like optimistic lock vs pessmistic lock.
+	\subsection{Compression}
+	Uncomputation is, fundamentally speaking, a form of compression.
 	
-	Even if there is enough memory, still good to use less!
-	Free up memory to run other process/increase cache size/give more room to garbage collectors.
-	
-	\section{Problems}
-	How to measure size of a Value? (There is sharing)
-	
-	Partially evict a datastructure - how to reconnect
-	
-	What value to evict
-	
-	Breadcrumb
-	
+	Pigeon hole principle mean it is fundamentally impossible to have a generic compression algorithm. Uncomputation exploit the inductive bias that a program pointer is smaller then its memory consumption is larger.
+	\section{Maybe?}
+	\subsection{Constant Optimization}
+	\subsection{Tail Call}
+	\subsection{Non Tail Call}
 	\section{API}
 	Zombie provide a monadic api.
 	In particular, we exposed a type constructor, Zombie: * -> *,
@@ -223,6 +255,11 @@
 	0: treat each cell as independent, ignoring all member relationship.
 	this trivialize size finding.
 	
+	Zombie allow recursive object, e.g. a list, a tree, or a graph.
+	For those object, a part of the object can be evicted, and sharing does not affect size counting.
+	This feature is implemented by ignoring recursiveness. All nesting need to loop through Zombie, and when it does that, the management of subsequent nested Zombie is completely handoff to it.
+	Note that this allow keeping some value of the list in memory, even when there is previous node evicted!
+	
 	1: hashconsing. to avoid the same expression producing multiple values, we introduce a type Idx, such that the same trace will be tagged with the same Idx.
 	Zombie X hold Idx instead of X, and the actual values are stored in a datastructure.
 	When return x try to create a Zombie X of tag idx, if idx is stored in the datastructure, that value is used instead, even though the computed value is equivalent to said value. This cause x to be immediately unreachable and can be released from memory. This allow evicting most of the list, only keeping some intermediate value. nowhere reachable via the object graph.
@@ -232,6 +269,8 @@
 	With this in mind, if we can create a data structure imitating the bind/return execution of the program, we can remove non top-level nodes, so that lookup will return a higher-level result then the remove node, we solved the breadcrumb problem.
 	
 	\section{Tock Tree API}
+	we need a data structure, such that when after removing a node, looking said node up does not return Nothing, but rather return a less precise answer.
+	
 	Below is an API summing up what we need.
 
 	Tock = u64
@@ -247,6 +286,8 @@
 	Lookup: TockTree X -> Tock -> Option (Range * X)
 
 	Remove: TockTree X -> Range -> ()
+	
+	geometric series
 
 	\section{Implementation}
 	Combining the 3 insights above we now sketch an implementation of Zombie.
@@ -263,10 +304,37 @@
 	In bind, we have to force values from Zombie X to X. This is done via looking it up from the tock tree. If the look up node is not a Value, but the Thunk, we need to rewind the tock to the beginning of said thunk, replay the value, get the value from the tock tree (todo: avoid infinite loop here), and restore the tock.
 	
 	\subsection{replaying semantic}
+	Program evaluate differently in replaying mode then in non-replay mode, as relevant Node might already be on the tock tree. When 
+	
+	Every entering tock (lhs of a range) uniquely identify a return/bind.
+	
+	% see https://www.khoury.northeastern.edu/home/wand/csg264/latex/mathpartir/mathpartir.pdf
+	\begin{mathpar}
+		A-Formula \and
+		Longer-Formula \and
+		And \and The-Last-One
+		
+		\inferrule
+		{aa \\\\ bb}
+		{dd \\ ee \\ ff}
+		
+		\inferrule*
+		{\inferrule* {aa \\ bb}{cc}
+			\\ dd}
+		{ee}
+	\end{mathpar}
 	\section{Proof}
-	
+	\subsection{Formal Definition}
+	\subsection{no infinite loop}
+	\subsection{replaying give old value back}
+	\subsection{it is same as a normal interpreter}
 	\section{Cache Policy}
+	note that the cache policy does not effect the correctness of the implementation, only the performance.
 	
+	GDSF
+	\subsection{Measuring compute time}
+	\subsection{recursive cache policy}
+	\subsection{union find}
 	\section{Eval}
 	
 	\section{OLD}
@@ -307,12 +375,6 @@
 	Thus, when a Rematerializer dominate no value, and another value dominate Rematerializer, we remove it. (todo: implement). Idea: manage this using pool.
 	
 	There is a slight error with the above design: maybe the value is recomputed and put on the tree, but then evicted, and fetch will not return a ZombieNode but a Rematerializer. To fix this we introduce a global data structure called Tardis, consist of a tock and a shared ptr<ZombieNode>*. When we create Zombie, when the tock match that of tardis, it will write to the shared ptr, holding the value longer.
-	
-	Recursive object:
-	Zombie allow recursive object, e.g. a list, a tree, or a graph.
-	For those object, a part of the object can be evicted, and sharing does not affect size counting.
-	This feature is implemented by ignoring recursiveness. All nesting need to loop through Zombie, and when it does that, the management of subsequent nested Zombie is completely handoff to it.
-	Note that this allow keeping some value of the list in memory, even when there is previous node evicted!
 	
 %% If your work has an appendix, this is the place to put it.
 \appendix
