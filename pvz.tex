@@ -1,0 +1,101 @@
+\section{Plant vs Zombie(8pg)}
+Combining the 3 insights above we now sketch an implementation of Zombie.
+There is a global tock, which value begin from 0, increasing on every invocation of bind/return.
+A Zombie<X> hold an Integer, tock, instead of value of type X.
+The value is stored in the tock tree.
+Whenever a call to return or bind is finished, we put a Node onto the tock tree.
+The range of said node is the tock value at the begin and end of the invocation.
+
+For return, the node contain the value.
+
+For bind, the node contain the list of input Zombie, the output Zombie, and the function pointer.
+
+In bind, we have to force values from Zombie X to X. This is done via looking it up from the tock tree. If the look up node is not a Value, but the Thunk, we need to rewind the tock to the beginning of said thunk, replay the value, get the value from the tock tree (todo: avoid infinite loop here), and restore the tock.
+
+\section{Tock Tree API}
+we need a data structure, such that when after removing a node, looking said node up does not return Nothing, but rather return a less precise answer.
+
+Below is an API summing up what we need.
+
+Tock = u64
+
+Range = Tock * Tock
+
+Make: TockTree X
+
+Insert: TockTree X -> Range * X -> ()
+
+Per two call to Insert, their range must either be nested or non-overlapping.
+
+Lookup: TockTree X -> Tock -> Option (Range * X)
+
+Remove: TockTree X -> Range -> ()
+
+geometric series
+\subsection{OLD}
+All Zombies are threaded through a logical clock, a tock, stored as a u64.
+During execution, the clock increases whenever makeZombie and bindZombie are called.
+
+A Zombie contains, theoretically speaking, contains only the tock that the Zombie is created at.
+To access the actual value of the Zombie, a ZombieNode, we rely on a global data structure.
+It will be explained later.
+(We also store a weakpointer to ZombieNode as a cache, to quicken access. This is just a cache, and is irrelevant to the rest of Zombie).
+A ZombieNode holds X but is inherited from the Object class, which contain a virtual destructor and nothing else. This essentially allow one to type erase ZombieNode of different type, to put them into the same data structure.
+
+We implement Zombie via two global data structures, a log and a pool.
+The pool track all currently in-memory Zombie representation - it manage space
+The log record actions taken used for recomputation - it manage time
+
+The pool holds a vector of uniqueptr<Phantom>, the class that manage eviction.
+It has api to evict objects, and api to score the profitability of eviction.
+When we are low on memory, we can find a value in this vector, call evict(), and remove it.
+This will free up memory in the log.
+
+For every call to makeZombie and bindZombie, we keep track of when the function is called vs when the function exited. This establishes a tock range. 
+For makeZombie, since it does not call any more functions, its interval length is 1, containing exactly the tock of the zombie.
+Tock range overlap iff one contain another, iff one function calls another function. We then store tock range, paired with information on said function. 
+For makeZombie we store a shared pointer to the ZombieNode. 
+For bindZombie, we record the function used to compute it, as std::function<void(const std::vector<const void*>)>, alongside the tocks of all input Zombies, and the tock of output Zombie. We call it a Rematerializer. The input argument is type erased to void*, as Zombie is type polymorphic, but we need a type uniform interface here.
+
+The log is some kind of interval tree. Each node in the tree stores its begin and end interval, alongside a value, and a BST from tock to sub nodes. The key of BST is the start of the sub node’s interval. When we query the log via a tock, we will find a value with the closest interval containing said tock. This mean, we might query for a Zombie, but instead of getting a ZombieNode, we get a Rematerializer.
+In such a case, we replay the Rematerializer by fetching the ZombieNode from the tock (replaying recursively if necessary), setting the clock to begin of the function temporarily, and entering said function. Afterward we set the clock back, and fetch the value from a tree.
+When we set the clock via rematerialization, we always set it to a smaller value, thus guaranteeing termination.
+
+The log itself, when replaying, also serve as a memo table, indexed by tock. When we want to create a Zombie, we will skip when such Zombie already exist in the log. When we want to run BindZombie, we return the result tock when the precise Rematerializer exist in the log. This allow us to not compute the same function multiple time, if we know its result, and allow us to not store the same Zombie multiple time.
+
+Note that all non-top-levels node in the tree can be removed. When we do so, we will free up memory, and when we need the value again, we can always replay a node higher up.
+
+This design allow us to store n log n amount of metadata per n alive(nonevicted) objects.
+
+Thus, when a Rematerializer dominate no value, and another value dominate Rematerializer, we remove it. (todo: implement). Idea: manage this using pool.
+
+There is a slight error with the above design: maybe the value is recomputed and put on the tree, but then evicted, and fetch will not return a ZombieNode but a Rematerializer. To fix this we introduce a global data structure called Tardis, consist of a tock and a shared ptr<ZombieNode>*. When we create Zombie, when the tock match that of tardis, it will write to the shared ptr, holding the value longer.
+
+\subsection{replaying semantic}
+Program evaluate differently in replaying mode then in non-replay mode, as relevant Node might already be on the tock tree. When 
+
+Every entering tock (lhs of a range) uniquely identify a return/bind.
+
+% see https://www.khoury.northeastern.edu/home/wand/csg264/latex/mathpartir/mathpartir.pdf
+\begin{mathpar}
+	A-Formula \and
+	Longer-Formula \and
+	And \and The-Last-One
+	
+	\inferrule
+	{aa \\\\ bb}
+	{dd \\ ee \\ ff}
+	
+	\inferrule*
+	{\inferrule* {aa \\ bb}{cc}
+		\\ dd}
+	{ee}
+\end{mathpar}
+
+
+\subsection{Tock Tree}
+\subsection{Recomputation}
+\subsection{Correctness Gurantee}
+\subsubsection{Progress}
+\subsubsection{Preservation}
+\subsection{Asymptotic}

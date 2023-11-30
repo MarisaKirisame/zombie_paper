@@ -32,3 +32,23 @@ There are 3 key insights that enable the above guarantee:
 	\item A global clock increasing on return/bind invocation. This not only give a way to quickly detect same objects for hashconsing, but as opposed to classical hash consing, the key itself have semantic meaning: < denote happens-before.
 	\item Recomputing A also recompute what is inside A. This mean we can forget about some inner thunk, as long as we can redirect the pointers to such thunk to an outer thunk. One possibility is to track backpointers and fix them, but this take significantly more time and space. Instead, Track function exit time too. Entering and exiting form a range, and two separate range either form a nested relationship or disjoint relationship. We can then design a datastructure, such that lookup failure return a match one-level above.
 \end{itemize}
+
+\todo{this is old tex. merge.}
+
+There are multiple insights that allow us to solve the above 4 problems. Explaining them aid understanding the implementation of Zombie.
+
+0: treat each cell as independent, ignoring all member relationship.
+this trivialize size finding.
+
+Zombie allow recursive object, e.g. a list, a tree, or a graph.
+For those object, a part of the object can be evicted, and sharing does not affect size counting.
+This feature is implemented by ignoring recursiveness. All nesting need to loop through Zombie, and when it does that, the management of subsequent nested Zombie is completely handoff to it.
+Note that this allow keeping some value of the list in memory, even when there is previous node evicted!
+
+1: hashconsing. to avoid the same expression producing multiple values, we introduce a type Idx, such that the same trace will be tagged with the same Idx.
+Zombie X hold Idx instead of X, and the actual values are stored in a datastructure.
+When return x try to create a Zombie X of tag idx, if idx is stored in the datastructure, that value is used instead, even though the computed value is equivalent to said value. This cause x to be immediately unreachable and can be released from memory. This allow evicting most of the list, only keeping some intermediate value. nowhere reachable via the object graph.
+
+2: note that bind can be nested: the function in bind may call more bind. When such nesting occur, executing the higher-level bind will also re-invoke the lower level bind. Hence - it is not necessary to store the lower-level thunk (even though doing so improve performance, as it will execute less code).
+
+With this in mind, if we can create a data structure imitating the bind/return execution of the program, we can remove non top-level nodes, so that lookup will return a higher-level result then the remove node, we solved the breadcrumb problem.
