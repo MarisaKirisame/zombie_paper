@@ -3,19 +3,19 @@
 Program consume memory. Program might use too much memory:
 \begin{itemize}
 	\item The input might be huge. Editing a file require loading the whole file into memory; Autocomplete load and parse the whole codebase; Image editors will keep multiple replica of similar images.
-	\item Exploding intermediate state: Model checker and Chess bot search through a huge state space, Compiler and Interprocedural analysis expand the AST, Deep Learning/Backpropagation create and keep intermediate value.
-	\item Low memory limit. wasm have a memory limit of 2GB, embedded device or poor people may have device with lower ram. A personal computer might be running multiple programs, which must contend for a fixed memory limit.
+	\item Exploding intermediate state: Model checker and Chess bot search through a huge state space, Compiler and Interprocedural analysis expand the AST, Deep Learning/Backpropagation create and keep intermediate value. Additionally, interactive/incrmental application such as Juypter Notebook, Undo/Redo Stack, Time travelling debugger also keep intermediate state around to revert back to an older state when needed.
+	\item Low memory limit. wasm have a memory limit of 2GB, embedded device or poor people may have device with lower ram. A personal computer might be running multiple programs, which must contend for a fixed memory limit. GPU and other accelerator use their own separate memory and usually is of smaller capacity then main memory.
 \end{itemize}
 
 Even when there is enough memory, it is still beneficial to use less memory. Operating System use memory for file cache, the program may have software cache, garbage collector fire less often give more free space, and extra space could be used to increase load or to execute other process.
 
-\todo{Why not buy more memory?}
+One common-bought up solution to the memory problem is - to just buy more memory. However this only work to certain extents. Accelerators and wasm have a fixed memory limit and memory-limited algorithm can improve space consumption asymptotically, a feat that merely hardware improvement cannot catch up to. \todo{should i talk about banker paradox here?}
 
 However, the only generic technique for reducing memory consumption, swapping, come with great drawback. Swapping move a chunk of data from main memory onto disk, and upon re-requesting it, move the data from disk back into main memory. It degrade performance significantly as disk is far slower then CPU and main memory, and it is especially bad for functional programs as most values is functional programs are boxed, they typically have less cache locality, exacerbated by swapping which operate on pages granularity.
 
 We propose uncomputation, a technique to reduce memory consumption for arbitrary purely functional programs. When needed, uncomputation select some values in the object graph according to cache policy, reverting it back into thunk, releasing memory until it is needed again, in which case it will recompute said values and replacing the thunk with the values.
 
-The idea of uncomputation is not new, ... But there is no fully automatic generic solution.
+The idea of uncomputation is not new, but we are the first to turn uncomputation into a generic programming language runtime technique. \todo{why havent other ppl done this before?}
 
 We introduce a library, zombie, which enable uncomputation for arbitrary purely functional program.
 \subsection{Guarantee(0.5pg)}
@@ -23,7 +23,8 @@ There are multiple guarantees our approach give.
 
 Correctness guarantee: uncomputing will not effect the final result (preservation), and will not be in an infinite loop (progress)
 
-Asymptotic guarantee: O(1) access time for all in-memory objects, and O(1) space for each in-memory objects (O(0) space for uncomputed objects)
+Asymptotic guarantee: O(1) access time for all in-memory objects, and O(1) space for each in-memory objects. In particular, this imply that we are not using any space for uncomputed objects.
+
 \subsection{Key Idea(1pg)}
 \todo{I dont like this section. feels like spoiler.}
 There are 3 key insights that enable the above guarantee:

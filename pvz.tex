@@ -32,6 +32,105 @@ Lookup: TockTree X -> Tock -> Option (Range * X)
 Remove: TockTree X -> Range -> ()
 
 geometric series
+
+\subsection{api}
+Below we give a monadic api for zombie. We will describe how to implement it later. \todo{figure out name for: the API, the naive implementation, the actual implementation}
+Zombie provide a monadic api. This mean that we exposed a type constructor, Zombie: * -> *,
+with the following 3 operations:
+
+
+\begin{itemize}
+	\item return: X -> Zombie X, 
+	\item bindN: Zombie X... -> (X... $\sim$> Zombie Y) -> Zombie Y
+	\item get: Zombie X -> X
+\end{itemize}
+
+the type Zombie externally speaking, behave as the Identity Monad - return and get is the identity, and bindN is the reversed apply. however, zombie will uncompute value behind the scene, recomputing them when needed, to save memory.
+
+two things worth noting:
+
+0 - we have a bindN, which take multiple Zombie, and a static function that does not capture any variable, from the inner type to another Zombie. This is different from the usual bindN accepting a single M, alongside a closured argument. This is because a closure will capture non-zombie values, so memory cannot be returned. Imagine the following function: M A -> M B -> M (A * B). An implementation via bind and return will capture A, causing said A to be non-evictable. note that bindN is of the same power as a closure allowing monadic bind.
+
+1 - the get function should only be used to obtain output, that will become a Zombie (or is used in a function that produce Zombie) again. This is because get strip out all metadata zombie maintain, so it is less efficient then obtaining the value via bindN.
+
+\subsection{Tock Tree}
+\subsection{Recomputation}
+\subsection{formalization}
+\subsubsection{language}
+
+\begin{mathpar}
+    E := BaseTerm | Var | Abs (Var:T)... E | App E E... | Bind E... E | Return E
+
+	T := BaseType | Z T | T... ~> T
+\end{mathpar}
+
+\todo{STLC is weak, but I want to say that it is 'the same' under another type system. or better yet, despite the monadic structure type is inessential to our approach}
+
+\subsubsection{typing rule}
+\begin{mathpar}
+	\inferrule{ }{Env |- BaseTerm : BaseType}
+	
+	\inferrule{v:T in Env}{Env |- v : T}
+
+	\inferrule{Var:T... |- E : T}{Env |- Abs (Var:T)... E : T... ~> T}
+	
+	\inferrule{Env |- E : T... -> T \\ (Env |- E : T)...}{Env |- App E E... : T}
+	
+	\inferrule{(Env |- E : T)... \\ Env |- E : (E:T)... ~> T}{Bind E... E : T}
+	\inferrule{Env |- E : T}{Env |- Return E : Z T}
+\end{mathpar}
+note that in the Abs rule, and the Bind rule, we throw away the old environment. this is because we do not allow closure. One could still implement another type representing closure or defunctionalized closure, different from the ~> type bindN need.
+\subsubsection{small step operational semantic}
+\begin{mathpar}
+	V ::= BaseTerm | Abs ... E | Z N
+
+	\inferrule
+	{v=V in Env}
+	{Env, H, v ~>> Env, H, V}
+	
+	\inferrule
+	{Env, H, E ~>> Env', H', E'}
+	{Env, H, App E E... ~>> Env, App E' E...}
+	
+	\inferrule
+	{Env, H, E. ~>> Env, H', E.'}
+	{Env, H, App V (V...)E.(E...) ~>> Env, H', App V (V...)E.'(E...)}
+	
+	\inferrule
+	{ }
+	{Env, H, App ((Var:T)...E) V... ~>> (Var=V)..., H, E}
+
+	\inferrule
+	{Env, H, E. ~>> Env', H', E.'}
+	{Env, Bind (V...)E.(E...) E ~>> Env, H', Bind (V...)E'(E...) E}
+	
+	\inferrule
+	{Env, H, E ~>> Env', H', E'}
+	{Env, Bind V... E ~>> Env, H', Bind V... E'}
+
+	\inferrule
+	{}
+	{Env, Bind Z V... (Var:T)... E ~>> (Var:V)..., E}
+
+	\inferrule
+	{Env, H, E ~>> Env', H', E'}
+	{Env, H, Return E ~>> Env, H', E'}
+
+	\inferrule
+	{ }
+	{Env, H, Return V ~>> Env, H(x := V), Z x}
+\end{mathpar}
+one weird thing about it is that our 'small step semantic' may actually take multiple step. 
+This allow us to isolate out small step semantic, simplifying our correctness proofs. If wished, one could define some classical small step semantic, and prove bisimulation between the two.
+
+another thing is that Env modification does not carry. \todo{I think this is normal. check.}
+
+also - a bit unsettling that Abs Evaluate the Function before the Argument, but Bind does it the other way. Should we unify the two, or make Bind look more like app?
+\subsection{Correctness Gurantee}
+\subsubsection{Progress}
+\subsubsection{Preservation}
+\subsection{Asymptotic}
+
 \subsection{OLD}
 All Zombies are threaded through a logical clock, a tock, stored as a u64.
 During execution, the clock increases whenever makeZombie and bindZombie are called.
@@ -77,25 +176,3 @@ Program evaluate differently in replaying mode then in non-replay mode, as relev
 Every entering tock (lhs of a range) uniquely identify a return/bind.
 
 % see https://www.khoury.northeastern.edu/home/wand/csg264/latex/mathpartir/mathpartir.pdf
-\begin{mathpar}
-	A-Formula \and
-	Longer-Formula \and
-	And \and The-Last-One
-	
-	\inferrule
-	{aa \\\\ bb}
-	{dd \\ ee \\ ff}
-	
-	\inferrule*
-	{\inferrule* {aa \\ bb}{cc}
-		\\ dd}
-	{ee}
-\end{mathpar}
-
-
-\subsection{Tock Tree}
-\subsection{Recomputation}
-\subsection{Correctness Gurantee}
-\subsubsection{Progress}
-\subsubsection{Preservation}
-\subsection{Asymptotic}
