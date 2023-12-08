@@ -32,27 +32,6 @@ Lookup: TockTree X -> Tock -> Option (Range * X)
 Remove: TockTree X -> Range -> ()
 
 geometric series
-
-\subsection{api}
-Below we give a monadic api for zombie. We will describe how to implement it later. \todo{figure out name for: the API, the naive implementation, the actual implementation}
-Zombie provide a monadic api. This mean that we exposed a type constructor, Zombie: * -> *,
-with the following 3 operations:
-
-
-\begin{itemize}
-	\item return: X -> Zombie X, 
-	\item bindN: Zombie X... -> (X... $\sim$> Zombie Y) -> Zombie Y
-	\item get: Zombie X -> X
-\end{itemize}
-
-the type Zombie externally speaking, behave as the Identity Monad - return and get is the identity, and bindN is the reversed apply. however, zombie will uncompute value behind the scene, recomputing them when needed, to save memory.
-
-two things worth noting:
-
-0 - we have a bindN, which take multiple Zombie, and a static function that does not capture any variable, from the inner type to another Zombie. This is different from the usual bindN accepting a single M, alongside a closured argument. This is because a closure will capture non-zombie values, so memory cannot be returned. Imagine the following function: M A -> M B -> M (A * B). An implementation via bind and return will capture A, causing said A to be non-evictable. note that bindN is of the same power as a closure allowing monadic bind.
-
-1 - the get function should only be used to obtain output, that will become a Zombie (or is used in a function that produce Zombie) again. This is because get strip out all metadata zombie maintain, so it is less efficient then obtaining the value via bindN.
-
 \subsection{Tock Tree}
 \subsection{Recomputation}
 \subsection{formalization}

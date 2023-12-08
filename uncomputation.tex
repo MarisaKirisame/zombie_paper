@@ -2,13 +2,42 @@
 \subsection{Motivation}
 \subsection{Strawman}
 \subsubsection{API}
-\todo{unable to use the monadic api.}
+Below we give a monadic api for zombie. We will describe how to implement it later. \todo{figure out name for: the API, the naive implementation, the actual implementation}
+Zombie provide a monadic api. This mean that we exposed a type constructor, Zombie: * -> *,
+with the following 3 operations:
+
+\begin{itemize}
+	\item return: X -> Zombie X, turning a value into Zombie. Note that any top-level return (that is, not in a bind), is not uncomputable, and will always live in memory, as there is no methods of uncomputing it.
+	\item bindN: Zombie X... -> (X... $\sim$> Zombie Y) -> Zombie Y, a modified bind. While it accept only static-function that does not capture any variable, it bind multiple Zombie at once. This is because a closure will capture non-zombie values, so memory cannot be returned. Imagine the following function: M A -> M B -> M (A * B). An implementation via bind and return will capture A, causing said A to be non-evictable. note that bindN is of the same power as a closure allowing monadic bind, and one can convert between the two form via defunctionalization and iterated binding. We could potentially allow zombie-capture, but doing that complicate our semantic without adding power, and we could allow all capture, putting performance responsibility on the users, but that make reasoning about performance much harder. 
+	\item get: Zombie X -> X, returning the value. It only for use as an 'escape hatch', or to obtain the final result: using it destroy dependency information, causing worst space-time tradeoff.
+\end{itemize}
+Zombie externally speaking, behave as the Identity Monad - return and get is the identity, and bindN is the reversed apply. however, zombie will uncompute value behind the scene, recomputing them when needed, to save memory.
 \subsubsection{Semantic}
+
+\todo{this is not so naive anymore. should we have an applicative only api to further simplify?}
+
+A naive implementation of the above API have the following type:
+
+Zombie X = Input X | Calculated (Ref (Maybe X)) Replayer
+
+Replayer = Exists T..., (Zombie T)..., (T... -> ()), Ref (List (Exists x, Zombie x))
+
+Essentially, either zombie is an input, or it is a static function with multiple dependency.
+In such case Zombie is a mutable slot that potentially store the result, alongside a Replayer, which replay the function.
+
+The Replayer record the dependency, the function, and the output. The output is a Reference as this is form a cyclic dependency. But it's usage is very 'functional': Before full construction, it is cons-only, and once fully constructed, it will not be written anymore.
+
+The separation between Zombie and Replayer is made, instead of a normal thunk returning a single value, because a single Replayer might encounter multiple or zero return.
+Get return X if it is an Input, or if it is an Calculated currently holding a value, otherwise it invoke the function, call get recursively on it, storing and returning the result.
+
+The implementation have a global data structure, a stack of Replayer. upon entering bind, the Replayer stack grow temporarily, storing the dependency and the function modified. upon return is called, we will do a lookup to find the last context, using it to fill Zombie's Replayer field. If no such context is found, it is top level and thus an Input.
+
+Get might be invoked by the user or by bind to turn Zombie X into X. Get on Input or Get on a Calculated with non-empty slot return said Value. Get on a Calculated with an empty-slot, however, need to recompute, by calling the replayer. This step recursively call get on Zombie T... input, invoke the function, which read the zombie list, reversing it, keeping a temporary local copy, and for each return, fill the intermediate result and pop the value off the list.
 \subsection{Guarantee}
 \subsection{Problems}
 While the high-level idea seems straightforward, there are multiple subtle questions: 
 \begin{itemize}
-	\item Recursiveness. A value, for example, a list, might be recursive. Furthermore, there might be sharing inside such datastructure. In such a case, how do we measure the size of a value, which is a valuable statistics guiding what to uncompute?
+	\item Recursiveness. A value, for example, a list, might be recursive. Furthermore, there might be sharing inside such datastructure. In such a case, how do we measure the size of a value, which is a valuable property guiding what to uncompute? Such value can be computed via recursively traversing all the descendant once, which is computationally expensive. There might also be external reference to part of said data structure, in whihc case the measured size is a poor estimate of what will be freed.
 	\item Partialness. Suppose a list is generated via anamorphism. We might want to uncompute the head of the list, but keeping some intermediate node inside the list.
 	When recomputing said list, we need to be able to retrieve such intermediate node, to
 	avoid spending extra time to recompute them, and extra memory to store them twice.
