@@ -33,6 +33,16 @@ Remove: TockTree X -> Range -> ()
 
 geometric series
 \subsection{Tock Tree}
+Such data structure is implemented by a tree, where the tree structures mimic that of bind/return nesting structure. In particular, each node in the tock tree X have:
+a range
+children, stored in an avl-tree, ordered by their start-tock. The range of the children do not overlap.
+X
+
+The top level node is special in that it does not have range nor children. Or, put in another way, we have a Tock-forest.
+
+Given an AVL of node ordered by their start-tock, we can test if a tock X is in one of the node's range by finding the largest node smaller or equal to X, then seeing if said node include X. using this operation, we can implement all operations on tock-tree in a straightforward manner.
+
+The key of the datastructure is the Lookup Function, which recursively traverse down the tree, until it found a node such that it's children does not the tock. In such case we return the last range and the value. This setup allow removing node, without LookUp returning None, as it will return the value higher-up instead. As the higher up function semantically imply, and will recreate all lower up function, removing will not destroy any information (in the information theoretic sense).
 \subsection{Recomputation}
 \subsection{formalization}
 \subsubsection{language}
@@ -109,7 +119,16 @@ also - a bit unsettling that Abs Evaluate the Function before the Argument, but 
 \subsubsection{Progress}
 \subsubsection{Preservation}
 \subsection{Asymptotic}
+\subsection{not violating information theory}
+clearly, it is impossible to store information in 0-bits, so where and how much storage are we using to store the breadcrumbs?
 
+as the program execute, the global tock counter will continuously increase, until it reach the 64-bit limit and overflow.
+
+assume there is x live objects, and y dead objects, word size needed to store tock per live object is O(log(x + y)), so total memory size is O(x * log(x + y)) taking the derivative of the expression w.r.t. y, give O(x/(x + y)). this give a sub-constant result: as there are more and more breadcrumb, the cost of storing each of them decrease, approaching 0!
+
+in practice, this number will not overflow. even in some extreme case where it does, making it into 128-bit will guarantee non-overflowness by being longer then the age of the universe. Even at 128-bit, the word size is still a small portion of the total overhead.
+
+suprsingly, this 'reducing n space program into log n space program' is also seen in the famous TREEVERSE. it is unclear if this is a mere conincidence, or if there is any deeper connection.
 \subsection{OLD}
 All Zombies are threaded through a logical clock, a tock, stored as a u64.
 During execution, the clock increases whenever makeZombie and bindZombie are called.
