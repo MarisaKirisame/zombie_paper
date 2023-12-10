@@ -12,22 +12,30 @@ with the following 3 operations:
 	\item get: Zombie X -> X, returning the value. It only for use as an 'escape hatch', or to obtain the final result: using it destroy dependency information, causing worst space-time tradeoff.
 \end{itemize}
 Zombie externally speaking, behave as the Identity Monad - return and get is the identity, and bindN is the reversed apply. however, zombie will uncompute value behind the scene, recomputing them when needed, to save memory.
-\subsubsection{Semantic}
+\subsubsection{Point-Applicative Implementation}
+Below we give a evolutionary approach, starting from an implementation of a point-applicative API, which is strictly weaker but easier to implement and explain.
 
-\todo{this is not so naive anymore. should we have an applicative only api to further simplify?}
+Zombie X = Input X | Calculated (Ref (Maybe X)) Exists T..., (Zombie T)..., (T... -> X)
 
-A naive implementation of the above API have the following type:
+A Zombie is an Input, in which case there is nothing we can do about it.
+Or it might be a calculated value from an ApN. We can then create a slot to store Maybe the result, alongside the thunk that compute it, with the dependency.
+
+When the value is forced, we either return the input, or the Maybe X, if it is a Just, or we have to recalculate it. That is achieved by forcing the T's from the Zombie, then feeding it into the function, then storing and returning the result.
+
+While the above implementation make sense, it suffer a fatal flaw: it is not a monad. This cause Uncomputation to be only usable for program without recursiveness, as such program will require join.
+\subsubsection{Monadic Implementation}
+Luckily such problem can be circumvented.
 
 Zombie X = Input X | Calculated (Ref (Maybe X)) Replayer
 
 Replayer = Exists T..., (Zombie T)..., (T... -> ()), Ref (List (Exists x, Zombie x))
 
-Essentially, either zombie is an input, or it is a static function with multiple dependency.
-In such case Zombie is a mutable slot that potentially store the result, alongside a Replayer, which replay the function.
+Compared to the pointed-applicative version, there are multiple changes.
 
-The Replayer record the dependency, the function, and the output. The output is a Reference as this is form a cyclic dependency. But it's usage is very 'functional': Before full construction, it is cons-only, and once fully constructed, it will not be written anymore.
+The biggest one is the change from a function with the dependency, to a single common type, the Replayer. The change stem from the fact that a single Bind may invoke multiple or no return, so a common Replayer type allow reuse from said multiple returned zombie.
 
-The separation between Zombie and Replayer is made, instead of a normal thunk returning a single value, because a single Replayer might encounter multiple or zero return.
+Replayer, then, have to distinguish and fill value of those zombies. It does so by turning the function from a purely-functional calculator, to a imperative writer, looking for the Zombie and filling the slot. The zombies are taken from the reference list which store all Return. The list is a reference as this is form a cyclic dependency. But it's usage is very 'functional': Before full construction, it is cons-only, and once fully constructed, it will not be written anymore.
+
 Get return X if it is an Input, or if it is an Calculated currently holding a value, otherwise it invoke the function, call get recursively on it, storing and returning the result.
 
 The implementation have a global data structure, a stack of Replayer. upon entering bind, the Replayer stack grow temporarily, storing the dependency and the function modified. upon return is called, we will do a lookup to find the last context, using it to fill Zombie's Replayer field. If no such context is found, it is top level and thus an Input.
@@ -36,16 +44,13 @@ Get might be invoked by the user or by bind to turn Zombie X into X. Get on Inpu
 \subsection{Guarantee}
 \subsection{Problems}
 While the high-level idea seems straightforward, there are multiple subtle questions: 
-\begin{itemize}
-	\item Recursiveness. A value, for example, a list, might be recursive. Furthermore, there might be sharing inside such datastructure. In such a case, how do we measure the size of a value, which is a valuable property guiding what to uncompute? Such value can be computed via recursively traversing all the descendant once, which is computationally expensive. There might also be external reference to part of said data structure, in whihc case the measured size is a poor estimate of what will be freed.
-	\item Partialness. Suppose a list is generated via anamorphism. We might want to uncompute the head of the list, but keeping some intermediate node inside the list.
-	When recomputing said list, we need to be able to retrieve such intermediate node, to
-	avoid spending extra time to recompute them, and extra memory to store them twice.
-	\item Uncomputation candidates. Which value should we pick to uncompute?
-	\item Breadcrumb. After a value is uncomputed, we need to store information needed to recompute said value. This become a bottleneck when most value is uncomputed, or when each value is small.
-\end{itemize}
-
-We present Zombie, a library for uncomptuation, alongside solutions to the questions above.
 \subsubsection{recursiveness}
+ Recursiveness. A value, for example, a list, might be recursive. Furthermore, there might be sharing inside such datastructure. In such a case, how do we measure the size of a value, which is a valuable property guiding what to uncompute? Such value can be computed via recursively traversing all the descendant once, which is computationally expensive. There might also be external reference to part of said data structure, in which case the measured size is a poor estimate of what will be freed. Furthermore, not only cant we get size, staleness is also diffcult: likewise, the staleness information require traversing down the data structure, looking at every cell.
 \subsubsection{doppelganger}
+Partialness. Suppose a list is generated via anamorphism. We might want to uncompute the head of the list, but keeping some intermediate node inside the list.
+When recomputing said list, we need to be able to retrieve such intermediate node, to
+avoid spending extra time to recompute them, and extra memory to store them twice.
+\subsubsection{uncomputation}
+Uncomputation candidates. Which value should we pick to uncompute?
 \subsubsection{breadcrumb}
+Breadcrumb. After a value is uncomputed, we need to store information needed to recompute said value. This become a bottleneck when most value is uncomputed, or when each value is small.

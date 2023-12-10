@@ -13,7 +13,9 @@ One common-bought up solution to the memory problem is - to just buy more memory
 
 However, the only generic technique for reducing memory consumption, swapping, come with great drawback. Swapping move a chunk of data from main memory onto disk, and upon re-requesting it, move the data from disk back into main memory. It degrade performance significantly as disk is far slower then CPU and main memory, and it is especially bad for functional programs as most values is functional programs are boxed, they typically have less cache locality, exacerbated by swapping which operate on pages granularity.
 
-We propose uncomputation, a technique to reduce memory consumption for arbitrary purely functional programs. When needed, uncomputation select some values in the object graph according to cache policy, reverting it back into thunk, releasing memory until it is needed again, in which case it will recompute said values and replacing the thunk with the values.
+Facing the lack of a generic solution, developers resort to ad-hoc, case-by-case solution, such as cache size tuning, reducing heap size, creating algorithm that swap and uncompute. Such solution complicate the system, and as the developer is likely not an expert on memory-constrained solution, suboptimal design/implementation is often made.
+
+We propose uncomputation, a technique to reduce memory consumption for arbitrary purely functional programs. When needed, uncomputation select some values in the object graph according to cache policy, reverting it back into thunk, releasing memory until it is needed again, in which case it will recompute said values and replacing the thunk with the values. We provided a monadic API behind uncomputation, such that mere mechnical translation is needed to apply our work. The monadic API also grant compatibility, saving developers headache from learning and converting between a full-fledge language.
 
 \subsection{Pebble game}
 The idea of uncomputation is not new. More specifically, uncomputation had been studied rather heavily by the TCS community, by modelling it as a 'pebble game'. 
@@ -33,39 +35,12 @@ The pebble game is a prolific area of TCS research, with many variation of pebbl
 
 It is hard to use less pebbles. John Hopcrof prove that for a pebble game of size X, one can use X / log(X) amount of pebble, but in general, no less. \todo{recheck this no less claim}. Moreover given a computation graph, the minimal amount of pebble (alongside the strategy) is not only NP-complete, but also inapproximable.
 
-\todo{what is the transition here?}
+\todo{give an example of a pebble game.}
+
+Our main focus is orthogonal to that of pebble games'. While the pebble game focus on finding good strategy, we focus on finding strategy effectively, using little space and time. In particular, under the lens of pebble game, the breadcrumb problem thus become 'how to store the computational graph without storing it', a seemingly impossible task.
 \subsection{Guarantee(0.5pg)}
 There are multiple guarantees our approach give.
 
-Correctness guarantee: uncomputing will not effect the final result (preservation), and will not be in an infinite loop (progress)
+Correctness guarantee: uncomputing will not effect the final result (preservation), and will not be in an infinite loop (progress). Essentially, uncomputing is transparent: the semantic is that of the same as if none happens at all.
 
 Asymptotic guarantee: O(1) access time for all in-memory objects, and O(1) space for each in-memory objects. In particular, this imply that we are not using any space for uncomputed objects.
-
-\subsection{Key Idea(1pg)}
-\todo{I dont like this section. feels like spoiler.}
-There are 3 key insights that enable the above guarantee:
-\begin{itemize}
-	\item Use a monadic API \todo{this is a bit week but is a dependency}. A monadic API give a generic yet turing-complete \todo{better word} method of extending a language. Furthermore it immediately ask an interesting question: what is the meaning of Zombie<Zombie<X>>? likewise, what is join?
-	\item A global clock increasing on return/bind invocation. This not only give a way to quickly detect same objects for hashconsing, but as opposed to classical hash consing, the key itself have semantic meaning: < denote happens-before.
-	\item Recomputing A also recompute what is inside A. This mean we can forget about some inner thunk, as long as we can redirect the pointers to such thunk to an outer thunk. One possibility is to track backpointers and fix them, but this take significantly more time and space. Instead, Track function exit time too. Entering and exiting form a range, and two separate range either form a nested relationship or disjoint relationship. We can then design a datastructure, such that lookup failure return a match one-level above.
-\end{itemize}
-
-\todo{this is old tex. merge.}
-
-There are multiple insights that allow us to solve the above 4 problems. Explaining them aid understanding the implementation of Zombie.
-
-0: treat each cell as independent, ignoring all member relationship.
-this trivialize size finding.
-
-Zombie allow recursive object, e.g. a list, a tree, or a graph.
-For those object, a part of the object can be evicted, and sharing does not affect size counting.
-This feature is implemented by ignoring recursiveness. All nesting need to loop through Zombie, and when it does that, the management of subsequent nested Zombie is completely handoff to it.
-Note that this allow keeping some value of the list in memory, even when there is previous node evicted!
-
-1: hashconsing. to avoid the same expression producing multiple values, we introduce a type Idx, such that the same trace will be tagged with the same Idx.
-Zombie X hold Idx instead of X, and the actual values are stored in a datastructure.
-When return x try to create a Zombie X of tag idx, if idx is stored in the datastructure, that value is used instead, even though the computed value is equivalent to said value. This cause x to be immediately unreachable and can be released from memory. This allow evicting most of the list, only keeping some intermediate value. nowhere reachable via the object graph.
-
-2: note that bind can be nested: the function in bind may call more bind. When such nesting occur, executing the higher-level bind will also re-invoke the lower level bind. Hence - it is not necessary to store the lower-level thunk (even though doing so improve performance, as it will execute less code).
-
-With this in mind, if we can create a data structure imitating the bind/return execution of the program, we can remove non top-level nodes, so that lookup will return a higher-level result then the remove node, we solved the breadcrumb problem.

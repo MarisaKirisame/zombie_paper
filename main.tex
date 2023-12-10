@@ -160,11 +160,11 @@
 	%% article.
 	\begin{abstract}
 		Program execution need memory. Program may run out of memory for multiple reasons: big dataset, exploding intermediate state, the machine have less memory then others, etc. When this happens, the program either get killed, or the operating system swaps, significantly degrading the performance.
-		We propose a technique, uncomputation, that allow the program to continue running smoothly even after breaching the memory limit, without a significant performance degradation.
+		We propose a technique, uncomputation, that allow the program to continue running gracefully even after breaching the memory limit, without significant performance degradation.
 		Uncomputation work by turning computed values back into thunk, and upon re-requesting the thunk, computing and storing them back.
-		A naive implementation of uncomputation will face multiple problems. Among them, the most crucial and the most challenging one is that of breadcrumb. After a value is uncomputed, it's memory can be released but extra memory, breadcrumb, is needed to recompute the value back when needed.
-		The smaller a value is, the breadcrumb it leave will take up a larger portion of memory, until the size of a value is less then or equal to that of the size of breadcrumb, so uncomputing save no memory.
-		The more value uncomputed, the more breadcrumb they leave behind, until most of the memory is used to record breadcrumb. This prohibit asymptotic improvement commonly seen in memory-cosntrainted algorithms.
+		A naive implementation of uncomputation will face multiple problems. Among them, the most crucial and the most challenging one is that of breadcrumb. After a value is uncomputed, it's memory can be released but some memory, breadcrumb, is needed, so we can recompute the value back.
+		The smaller a value is, the breadcrumb it leave will take up a larger portion of memory, until the size of a value is less then or equal to that of the size of breadcrumb, so uncomputing save no memory. \todo{maybe remove?}
+		The more value uncomputed, breadcrumb accumulate, until most of the memory is used to record breadcrumb. This prohibit asymptotic improvement commonly seen in memory-cosntrainted algorithms.
 		We present a runtime system, implemented as a library, that is absolved of the above breadcrumb problem, seemingly storing recompute information in 0-bits and violating information theory.
 	\end{abstract}
 	
@@ -191,7 +191,7 @@
 	\input{uncomputation}
 	\input{pvz}
 	\input{cache}
-	\section{Eval(3pg)}
+	\input{eval}
 	\section{Case Study(2pg)}
 	\input{related}
 	\section{Maybe?}
