@@ -1,30 +1,53 @@
 \section{Uncomputation(5pg)}
-\subsection{Motivation}
-\subsection{Strawman}
+As our construction contain multiple parts, and might seems unintuitive to an outsider, we adopted an incremental approach to explain our work.
+\subsection{Point-Applicative}
 \subsubsection{API}
-Below we give a monadic api for zombie. We will describe how to implement it later. \todo{figure out name for: the API, the naive implementation, the actual implementation}
-Zombie provide a monadic api. This mean that we exposed a type constructor, Zombie: * -> *,
-with the following 3 operations:
-
+We start from an point-applicative api:
 \begin{itemize}
-	\item return: X -> Zombie X, turning a value into Zombie. Note that any top-level return (that is, not in a bind), is not uncomputable, and will always live in memory, as there is no methods of uncomputing it.
-	\item bindN: Zombie X... -> (X... $\sim$> Zombie Y) -> Zombie Y, a modified bind. While it accept only static-function that does not capture any variable, it bind multiple Zombie at once. This is because a closure will capture non-zombie values, so memory cannot be returned. Imagine the following function: M A -> M B -> M (A * B). An implementation via bind and return will capture A, causing said A to be non-evictable. note that bindN is of the same power as a closure allowing monadic bind, and one can convert between the two form via defunctionalization and iterated binding. We could potentially allow zombie-capture, but doing that complicate our semantic without adding power, and we could allow all capture, putting performance responsibility on the users, but that make reasoning about performance much harder. 
-	\item get: Zombie X -> X, returning the value. It only for use as an 'escape hatch', or to obtain the final result: using it destroy dependency information, causing worst space-time tradeoff.
+	\item pure: X -> Zombie X, turning a value into Zombie. Since this function works on raw value, there are no compute dependency recorded, and we can not uncompute any zombie created this way. \\
+
+	\item apN: (X... $\sim$> Y) -> Zombie X... -> Zombie Y, a modified Ap. \\
+
+	The function argument must be a static function, hence we denote it with a $\sim$> arrow. This restriction is because as a library instead of a whole-language approach, closure might capture non-zombie argument. Storing such closure will cause memory managed by Zombie to extend it's lifetime, nullifying uncomputation on those Zombie. \\
+
+	The above restriction lose expressivity. For example, it is no longer possible to write the function Zombie A -> Zombie B -> Zombie (A * B). To accommodate for the expressivity lost, Ap now become a polyvardic function, taking an arbitrary amount if Zombie, alongside a function of matching type. \\
+
+
+	The two interface is equally expressive, via defunctionalization and via currying. \\
+	
+	We could potentially allow zombie-capture in the function, but doing that complicate our semantic without adding power, and we could allow all capture, putting performance responsibility on the users, but that make reasoning about performance much harder. \\
+
+	\item get: Zombie X -> X, returning the value. It only for use as an 'escape hatch', or to obtain the final result: in particular, using get, calling function f then pure instead of ApN will not register f in Zombie, so it is impossible to uncompute.
 \end{itemize}
-Zombie externally speaking, behave as the Identity Monad - return and get is the identity, and bindN is the reversed apply. however, zombie will uncompute value behind the scene, recomputing them when needed, to save memory.
-\subsubsection{Point-Applicative Implementation}
-Below we give a evolutionary approach, starting from an implementation of a point-applicative API, which is strictly weaker but easier to implement and explain.
+Note that an implementation of Zombie, aside from satisfying the above type, and classical law on applicatives, should furthermore behave semantically equivalently as a Identity type. That is, Zombie should not temper with the value stored inside in anyway. Of course, a efficient implementation of Zombie should be more then the Identity type, uncomputing and recomputing values in the user's back.
+\subsubsection{Implementation}
+The above API could be implement with this definition of Zombie:
 
-Zombie X = Input X | Calculated (Ref (Maybe X)) Exists T..., (Zombie T)..., (T... -> X)
+Zombie X = Input X | Calculated (Ref (Maybe X)) Exists T..., (Zombie T)..., (T... $\sim$> X)
 
-A Zombie is an Input, in which case there is nothing we can do about it.
+A Zombie is either an Input, in which case there is nothing we can do about it.
 Or it might be a calculated value from an ApN. We can then create a slot to store Maybe the result, alongside the thunk that compute it, with the dependency.
 
-When the value is forced, we either return the input, or the Maybe X, if it is a Just, or we have to recalculate it. That is achieved by forcing the T's from the Zombie, then feeding it into the function, then storing and returning the result.
+When the value is forced, we either return the input, or the Maybe X, if it is a Just, or we have to recalculate it. That is achieved by calling get on Zombie T, to get the T values, feeding it into the function, then storing and returning the result. This recompute process is recursive: a recompute might find its dependency missing, so further recompute is done on those. Furthermore, this recursive process also consume and might run out of memory, and when that happen Zombie need to uncompute during said recompute. Extra care must be given to avoid uncomputing what just got recomputed, as to not enter an infinite loop.
 
 While the above implementation make sense, it suffer a fatal flaw: it is not a monad. This cause Uncomputation to be only usable for program without recursiveness, as such program will require join.
-\subsubsection{Monadic Implementation}
-Luckily such problem can be circumvented.
+\subsection{Monadic}
+\subsubsection{API}
+The API is a slight twist from the above, only that apN (now bindN) return Zombie instead of raw Value.
+\begin{itemize}
+	\item return: X -> Zombie X. We must relax the constraint from pure: any non-top-level call of return will not be uncomputable. This is because the monadic interface rely heavily on return. \\
+	\item bindN: (X... $\sim$> Zombie Y) -> Zombie X... -> Zombie Y. Like apN, it is polyvardic and does not allow closure. We flipped the argument order, putting the function before the monad, to emphasize symmetry with ap and with function application. \\
+	\item get: Zombie X -> X. It is exactly the same as get from the applicative API. \\
+\end{itemize}
+\subsubsection{Implementation}
+The change from Applicative to Monadic API pose several challenges.
+
+\begin{itemize}
+	\item return now behave differently, base on whether it is top-level or not. Furthermore return need to find the arguments to bind. To do this, we need to introduce a global data structure, a stack of bind-context, for return to match on.
+	\item bind may invoke zero or multiple return, as opposed to ap always 'returning' once. So when Zombie replay, it need to fill multiple said Zombie, instead of only one.
+\end{itemize}
+
+Given the above challenges, the Zombie type is now:
 
 Zombie X = Input X | Calculated (Ref (Maybe X)) Replayer
 
@@ -32,18 +55,20 @@ Replayer = Exists T..., (Zombie T)..., (T... -> ()), Ref (List (Exists x, Zombie
 
 Compared to the pointed-applicative version, there are multiple changes.
 
-The biggest one is the change from a function with the dependency, to a single common type, the Replayer. The change stem from the fact that a single Bind may invoke multiple or no return, so a common Replayer type allow reuse from said multiple returned zombie.
+The biggest one is the change from a function with the dependency, to a single common type, the Replayer. This allow multiple return in the same bind to share one replayer.
 
 Replayer, then, have to distinguish and fill value of those zombies. It does so by turning the function from a purely-functional calculator, to a imperative writer, looking for the Zombie and filling the slot. The zombies are taken from the reference list which store all Return. The list is a reference as this is form a cyclic dependency. But it's usage is very 'functional': Before full construction, it is cons-only, and once fully constructed, it will not be written anymore.
 
 Get return X if it is an Input, or if it is an Calculated currently holding a value, otherwise it invoke the function, call get recursively on it, storing and returning the result.
 
-The implementation have a global data structure, a stack of Replayer. upon entering bind, the Replayer stack grow temporarily, storing the dependency and the function modified. upon return is called, we will do a lookup to find the last context, using it to fill Zombie's Replayer field. If no such context is found, it is top level and thus an Input.
+The implementation work on a global data structure, a stack of Replayer. upon entering bind, the Replayer stack grow temporarily, storing the dependency and the function modified. upon return is called, we will do a lookup to find the last context, using it to fill Zombie's Replayer field. If no such context is found, it is top level and thus an Input.
 
 Get might be invoked by the user or by bind to turn Zombie X into X. Get on Input or Get on a Calculated with non-empty slot return said Value. Get on a Calculated with an empty-slot, however, need to recompute, by calling the replayer. This step recursively call get on Zombie T... input, invoke the function, which read the zombie list, reversing it, keeping a temporary local copy, and for each return, fill the intermediate result and pop the value off the list.
 \subsection{Guarantee}
+\todo{do we want to proof the same thing three time? (one for the applicative version, one for the monadic version, and one for the final version)}
 \subsection{Problems}
 While the high-level idea seems straightforward, there are multiple subtle questions: 
+\todo{make pictures!}
 \subsubsection{recursiveness}
  Recursiveness. A value, for example, a list, might be recursive. Furthermore, there might be sharing inside such datastructure. In such a case, how do we measure the size of a value, which is a valuable property guiding what to uncompute? Such value can be computed via recursively traversing all the descendant once, which is computationally expensive. There might also be external reference to part of said data structure, in which case the measured size is a poor estimate of what will be freed. Furthermore, not only cant we get size, staleness is also diffcult: likewise, the staleness information require traversing down the data structure, looking at every cell.
 \subsubsection{doppelganger}

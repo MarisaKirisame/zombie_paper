@@ -1,6 +1,17 @@
 \section{Plant vs Zombie(8pg)}
+\todo{urgggh how do i transit from the naive implementation to this}
 \subsection{Insight}
+The key insight that solve the breadcrumb problem is to notice that bind are nested.
 
+The function in a bind might call more bind, which themselves might call more bind, and so on. In fact, in a monadic translation of lambda calculus program, there is only one top-level bind, with all other bind nested inside it. This mean that in-principle, we only need to store this top-level function, freeing us from storing the rest.
+
+To do this, we need to detach Replayer from Zombie, storing them instead on a global data structure. Zombie then store the index to said datastructure instead of storing Replayer directly. With a carefully designed data structure, explained later, we can then remove intermediate Replayer, as long as the index lookup will return some Replayer that represent a bind that will invoke the original bind, instead of failing. Bind now need to find and refill the Zombie object that is still in-memory. This can be accomplished by having Zombie X not storing X directly, but also stored on such data structure. A Zombie then, is nothing but merely an index to the data structure.
+
+A simple, fast and slim index is logical time. As we also use physical time for other purpose, to avoid confusion, we will name our logical time tock. There is a global system clock, tock, that start from 0, increasing everytime bind or return is called, before actually executing them \todo{this is a bit redundant, but i want to stress}. The tock at the beginning and at the end of bind/return execution will give us range, and bind/return nest if one ranger include another. Note that there are no non-nesting intercept: either a range include another, or two range have no common tock at all. This suggest our data structure should be a tree, and including range be represented by ancestor-children relationship. A lookup then find the smallest matching range, and return the data store on such node. An uncomputed value is then represented by an index that, when lookup, return a Replayer instead of the value.
+
+We can then set the tock temporarily to the start of the range, re-run the function, then reset the tock back. When rerunning the function, if the same return node is encountered, the new value can be dropped directly, resolving us from the doppleganger problem. \todo{why not drop the old value? I think dropping the new is better performant-wise. maybe test}. If the same bind node is encountered, the bind can be skipped, returning the final result (which is now stored in the Replayer \todo{rename}). To avoid uncomputing result needed, there is an extra stack storing reference of optioanl values, paired with the tock. When replaying return, if the tock match, the value need to be written to the reference.
+
+With the above design, looking back, by fixing breadcrumb, we solved doppleganger on the way, and recursiveness likewise become a non-problem: the lifetime of a zombie object is orthogonal to the lifetime of what it hold, so there is no longer any recursiveness: each node of a recursive object is managed by it's own individual zombie only.
 \subsection{Key Idea(1pg)}
 
 There are 3 key insights that enable the above guarantee:
@@ -82,7 +93,7 @@ note how the normal evaluation is eager as we have to assign tock to all functio
 
 \subsection{formalization}
 \subsubsection{language}
-
+\todo{fix all bind. they now take the function before the arguments}
 \begin{mathpar}
     E := BaseTerm | Var | Abs (Var:T)... E | App E E... | Bind E... E | Return E
 
