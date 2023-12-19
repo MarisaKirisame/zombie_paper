@@ -1,0 +1,13 @@
+\section{Call Stack}
+While the above construction can 
+\subsection{Tail Call}
+Call stack - get a node with inf right value onto tock tree, fix when 'actual' return
+
+Clock stack - put the value on the node
+
+C++ stack - trampoline
+
+Replay stack - bounded by the tock tree size * intermediate node count, so it is linear w.r.t. tock tree.
+\subsection{Non Tail Call}
+By doing a continuation passing style transform all call become tail call.
+The continuation might grow in size but we can zombified it.
