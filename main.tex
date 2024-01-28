@@ -107,6 +107,7 @@
 
 \usepackage{xcolor}
 \newcommand\todo[1]{\textcolor{red}{#1}}
+\newcommand\pavel{\todo{pavel look here} }
 
 %%
 %% end of the preamble, start of the body of the document source.
@@ -115,7 +116,6 @@
 	%% The "title" command has an optional parameter,
 	%% allowing the author to define a "short title" to be used in page headers.
 	\title{Uncomputation}
-	
 	%%
 	%% The "author" command and its associated commands are used to define
 	%% the authors and their affiliations.
@@ -193,73 +193,6 @@
 	\input{call_stack}
 	\input{cache}
 	\input{eval}
-	\section{Union Find}
-	
-	problem: calculating recursive cost is expensive.
-	
-	one may be tempted to solve this problem via dynamic programming: storing a recursive compute cost for each node in the graph,
-	calculated by summing up it's own compute cost with recursive compute cost of that of it's parent.
-	
-	such approach have two drawback:
-	0 - when upstream node got evicted/rematerialize, downstream node need to update their recursive cost, 
-	thus this is merely trading graph traversal at pull to graph traversal at push.
-	1 - will double count at diamond dependency, leading to potentially exponentially larger estimation.
-	
-	adopting the approach of dtr \todo{should we say this?}, we use a union find data structure. 
-	
-	We assign each node 
-	two evicted node is in the same eclass if they are both evicted, and one is the parent of another. additionally, transitivity equate node that is not immediate parent/children. \todo{note that this include more node then recursive children/parent. draw a graph to illustrate.}
-	
-	each eclass additionally store a compute cost. everytime a node enter a eclass via eviction, we add said node's compute cost to the eclass.
-	when a node leave the eclass via rematerialization, we do the according subtraction.
-	
-	this allow us to estimate compute cost in approximately O(1) time.
-	\section{Related Works}
-	cooperative caching - opposite of us
-	
-	membalancer - balancing multiple stuff, space time tradeoff
-	
-	swapping? - slow demonstrated via gimp. cache + swap is interesting. cite some paper that manage both.
-	
-	berger's oopsla paper - manage both cache and gc
-	
-	FIFO Queues are All You Need for Cache Eviction
-	
-	The CacheLib Caching Engine: Design and Experiences at Scale
-	
-	Kangaroo: Caching Billions of Tiny Objects on Flash
-	
-	A large scale analysis of hundreds of in-memory cache clusters at Twitter
-	
-	Improving WWW Proxies Performance with Greedy-Dual-Size-Frequency Caching Policy
-	
-	GreedyDual Web caching algorithm: exploiting the two sources of temporal locality in Web request streams
-	
-	Replacement Policies for a Proxy Cache - introduce LRV
-	
-	Johnny Cache: the End of DRAM Cache Conflicts (in Tiered Main Memory Systems)
-	
-	Software-Defined Caching: Managing Caches in Multi-Tenant Data Centers
-	
-	Caching less for better performance: Balancing cache size and update cost of flash memory cache in hybrid storage systems
-	
-	My cache or yours? Making storage more exclusive
-	
-	Cooperative Caching: Using Remote Client Memory to Improve File System Performance
-	
-	FaaST: A Transparent Auto-Scaling Cache for Serverless Applications
-	
-	OFC: an opportunistic caching system for FaaS platforms
-	
-	FairRide: Near-Optimal, Fair Cache Sharing
-	
-	GD-Wheel: a cost-aware replacement policy for key-value stores
-	
-	Cliffhanger: Scaling Performance Cliffs in Web Memory Caches
-	
-	DistCache: Provable Load Balancing for Large-Scale Storage Systems with Distributed Caching
-	
-	An Analysis of Facebook Photo Caching
 	\section{Case Study(2pg)}
 	\input{related}
 	\section{Constant Optimization}

@@ -6,5 +6,26 @@ GDSF
 measuring time is more complex then it seems.
 
 need to be recursive and uncount recursive time.
+
 \subsection{recursive cache policy}
 \subsection{union find}
+\pavel old text from recursive cache paper. i think it is somewhat readable.
+problem: calculating recursive cost is expensive.
+
+one may be tempted to solve this problem via dynamic programming: storing a recursive compute cost for each node in the graph,
+calculated by summing up it's own compute cost with recursive compute cost of that of it's parent.
+
+such approach have two drawback:
+0 - when upstream node got evicted/rematerialize, downstream node need to update their recursive cost, 
+thus this is merely trading graph traversal at pull to graph traversal at push.
+1 - will double count at diamond dependency, leading to potentially exponentially larger estimation.
+
+adopting the approach of dtr \todo{should we say this?}, we use a union find data structure. 
+
+We assign each node 
+two evicted node is in the same eclass if they are both evicted, and one is the parent of another. additionally, transitivity equate node that is not immediate parent/children. \todo{note that this include more node then recursive children/parent. draw a graph to illustrate.}
+
+each eclass additionally store a compute cost. everytime a node enter a eclass via eviction, we add said node's compute cost to the eclass.
+when a node leave the eclass via rematerialization, we do the according subtraction.
+
+this allow us to estimate compute cost in approximately O(1) time.

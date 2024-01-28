@@ -3,7 +3,7 @@
 Program consume memory. Program might use too much memory:
 \begin{itemize}
 	\item The input might be huge. Editing a file require loading the whole file into memory; Autocomplete load and parse the whole codebase; Image editors will keep multiple replica of similar images.
-	\item Exploding intermediate state: Model checker and Chess bot search through a huge state space, Compiler and Interprocedural analysis expand the AST, Deep Learning/Backpropagation create and keep intermediate value. Additionally, interactive/incrmental application such as Juypter Notebook, Undo/Redo Stack, Time travelling debugger also keep intermediate state around to revert back to an older state when needed.
+	\item Exploding intermediate state: Model checker and Chess bot search through a huge state space, Compiler and Interprocedural analysis expand the AST, Deep Learning/Backpropagation create and keep intermediate value. Additionally, interactive/incrmental application such as Juypter Notebook, Undo/Redo Stack, Time travelling debugger, program slicing, also keep intermediate state around to revert back to an older state when needed.
 	\item Low memory limit. wasm have a memory limit of 2GB, embedded device or poor people may have device with lower ram. A personal computer might be running multiple programs, which must contend for a fixed memory limit. GPU and other accelerator use their own separate memory and usually is of smaller capacity then main memory.
 \end{itemize}
 
@@ -44,3 +44,22 @@ There are multiple guarantees our approach give.
 Correctness guarantee: uncomputing will not effect the final result (preservation), and will not be in an infinite loop (progress). Essentially, uncomputing is transparent: the semantic is that of the same as if none happens at all.
 
 Asymptotic guarantee: O(1) access time for all in-memory objects, and O(1) space for each in-memory objects. In particular, this imply that we are not using any space for uncomputed objects.
+
+\subsection{Insight}
+While the above asymptotic guarantee seems very strong, it is actually achievable via:
+
+\begin{itemize}
+	\item Record undelimited context instead of closures. Undelimited context, when run long enough, will produce everything later.
+	\item Assigning a monotonically increasing number, tock, to all zombie creation, and to all call/return/tailcall. This give each zombie a global unique id, so repeat creation of zombie do not create duplicate objects. It also give an ordering so we can find earlier context to replay.
+	\item A data structure, tock tree. The tock tree is a binary search tree, that, on lookup failure, instead of failing (via exception/nullptr/optional), will return the closest match: the value associated with the largest key less then/equal to the input key. This design allow removal of arbitrary context, except the earliest one, as removing an earlier context merely cause lookup to return a further context, requiring more replay.
+\end{itemize}
+
+\pavel I hate how we talk bad about a naive approach later, but explain our core idea here. I think we should not have naive approach at all, or have it before core idea. Also - 1.3 and 1.4 is new. What other thing do I need for the intro?
+
+\subsection{Contribution}
+Our contribution is as follow:
+\begin{itemize}
+	\item A monadic API, with a naive implementation and why it doesnt work
+	\item A implementation without problem above
+	\item Formulation and proof of important properties
+\end{itemize}

@@ -1,5 +1,83 @@
+\pavel start reading here
 \section{Plant vs Zombie(8pg)}
 \todo{urgggh how do i transit from the naive implementation to this}
+\subsection{SplayList} \todo{the name splaylist technically exist but not really. can we call it that?}
+to begin explaining the core data structure, we have to explain a splay list.
+a splay list is a splay tree, fused with a doubly linked list.
+the doubly linked list maintain the ordering on all keys.
+template<typename K, typename V> \\
+struct SplayList \{ \\
+	struct Node \{ \\
+		K k; \\
+		V v; \\
+		Node* parent; \\
+		Node* child; \\
+		\\		
+		Node* splayparent; \\
+		Node* splayleftchild; \\
+		Node* splayrightchild; \\
+	\}; \\
+\};
+
+\todo{huh. splaylist save one lookup. look like a normal splay tree will do. maybe we can move this into optimization}
+
+A splaylist provide the following api: \\
+get: SplayList K V -> K -> option<V> \\
+put: SplayList K V -> K -> V -> () \\
+remove: SplayList K V -> K -> V -> ()
+
+with additionally, \\
+get\_key: SplayList K V -> K -> option<K> \\
+has\_precise: SplayList K V -> K -> bool \\
+get\_approx: SplayList K V -> K -> option<V> \\
+remove\_approx: SplayList K V -> K -> V -> ()
+
+The API could be classified into 3 groups:
+\begin{itemize}
+\item get/put/remove: this is the normal splay tree operation
+\item get/remove\_approx: get/remove like above, but find the largest node smaller/equal to the current node, and operating on it, instead of failing.
+\item has\_precise: whether the key exist, and get\_key, the largest key smaller/equal to the input.
+\end{itemize}
+
+the approx version is implemented by descending to the leaf node just like a normal BST, but of the node have a greater key, visiting it's parent node via the doubly linked list pointers, exactly once.
+
+\subsection{Tock Tree}
+The core data structure in zombie, the tock tree, is a splaylist of tock to context. A context record all information needed to replay at that tock, alongside all zombie's internal content(ZombieNode) produced at that context.
+
+Formally, a context at tock t contain the following:
+A function pointer \todo{we actually use std function (more costly) for better ergonomic}
+A list of tock representing the input of said function pointer
+A Timespan recording how long the execution take
+A vector of shared ptr, storing ZombieNode of tock (t+1), (t+2)... (t+n)
+
+With Tock Tree defined, a Zombie is merely a Tock paired with a weak pointer to zombie node, acting as cache for fast access.
+
+\subsection{Recording Semantic}
+While recording, we have a PartialContext \todo{garbage name}. A PartialContext is a Context with the timespan replaced by a start time (as it is still running and recording), and with the vector of zombie node being filled. It also additionally keep a tock denoting when it started.
+
+A PartialContext is created whenever bindzombie is tail-called. it record the current time, the current tock, and the function pointer alongside the argument to bindzombie. The old PartialContext is then finished (by subtracting the time recording, turning the instant into a duration) then putted onto the splaylist.
+
+When zombie is created, the zombienode is put into the vector of the PartialContext.
+\subsubsection{supporting non-tail call}
+bindzombie may appear in more then tail call position. When this happend, upon reentering, a special context, where instead of the function pointers alongside input, the tock of the original context is stored.
+to support this PartialContext form a stack. tailcall/zombie modify the head of the stack, and on a non-tailcall bindzombie, the PartialContext is put onto the stack.
+\subsubsection{supporting top-level zombie}
+There is also a special, unreplayable context, consisted of only vector of zombie node, and a tock pointing to the last replayable-place, a top-level Context.
+
+Note that under CPS transformation, there are no top-level zombie, and all call are tail call. However we still support the above two case for completeness reason.
+\subsection{Replaying Semantic}
+Replaying require a additional stack, the replay stack. The replay stack is a stack of tock paired with a zombienode(shared pointer of any). Replaying work just like normal playing, but on zombie creation it read the top of the stack, and if the tock match, modify the shared pointer to point to the zombienode.
+
+Replaying is entered once we bind a value, but the value does not exist (as it had been evicted). Replaying can cause further replaying, and eviction might also happen inside replaying which will cause such further replaying.
+
+\subsection{proof sketch}
+progress: the replay stack move forward
+
+preservation: under some condition\todo{figure out}, on any given splaylist/replay stack/context stack, the evaluation is a bisimulation of normal evaluation semantic.
+
+pavel I know this is not a triangle, but I think the triangle step is captured in the 'different splaylist condition'.
+\pavel stop reading here
+
 \subsection{Insight}
 The key insight that solve the breadcrumb problem is to notice that bind are nested.
 
