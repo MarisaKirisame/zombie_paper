@@ -17,27 +17,6 @@ Facing the lack of a generic solution, developers resort to ad-hoc, case-by-case
 
 We propose uncomputation, a technique to reduce memory consumption for arbitrary purely functional programs. When needed, uncomputation select some values in the object graph according to cache policy, reverting it back into thunk, releasing memory until it is needed again, in which case it will recompute said values and replacing the thunk with the values. We provided a monadic API behind uncomputation, such that mere mechnical translation is needed to apply our work. The monadic API also grant compatibility, saving developers headache from learning and converting between a full-fledge language.
 
-\subsection{Pebble game}
-The idea of uncomputation is not new. More specifically, uncomputation had been studied rather heavily by the TCS community, by modelling it as a 'pebble game'. 
-
-Pebble game is played on a computation graph, a directed acyclic graph where vertex represent data and edge represent computational dependency between data. The game is played with a fixed amount of identical pebble, representing memory, with each vertex possibly having one pebble on it. 
-
-It is played with the following rules:
-\begin{itemize}
-\item If a vertex have no pebble, but all it's parent have pebble, a pebble can be placed on it. This represent computing a value based on it's dependency, and stroing the result.
-\item A pebble can be removed from a vertex. This represent deallocating a value.
-\item The game is finished if a pebble is placed on a special vertex, the result.
-\end{itemize}
-
-The aim of the game is to finish it in the minimal amount of compute step.
-
-The pebble game is a prolific area of TCS research, with many variation of pebble game, modeling swapping or partially reversible computation, or with different cost/constraint. Special casing on the computation graph, where it form a planar graph or a tree, had likewised be studied. However, in the general case, on the classical pebble game is very diffcult.
-
-It is hard to use less pebbles. John Hopcrof prove that for a pebble game of size X, one can use X / log(X) amount of pebble, but in general, no less. \todo{recheck this no less claim}. Moreover given a computation graph, the minimal amount of pebble (alongside the strategy) is not only NP-complete, but also inapproximable.
-
-\todo{give an example of a pebble game.}
-
-Our main focus is orthogonal to that of pebble games'. While the pebble game focus on finding good strategy, we focus on finding strategy effectively, using little space and time. In particular, under the lens of pebble game, the breadcrumb problem thus become 'how to store the computational graph without storing it', a seemingly impossible task.
 \subsection{Guarantee(0.5pg)}
 There are multiple guarantees our approach give.
 

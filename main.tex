@@ -106,6 +106,7 @@
 %%\citestyle{acmauthoryear}
 
 \usepackage{xcolor}
+\usepackage{mdframed}
 \newcommand\todo[1]{\textcolor{red}{#1}}
 \newcommand\pavel{\todo{pavel look here} }
 
@@ -163,8 +164,7 @@
 		We propose a technique, uncomputation, that allow the program to continue running gracefully even after breaching the memory limit, without significant performance degradation.
 		Uncomputation work by turning computed values back into thunk, and upon re-requesting the thunk, computing and storing them back.
 		A naive implementation of uncomputation will face multiple problems. Among them, the most crucial and the most challenging one is that of breadcrumb. After a value is uncomputed, it's memory can be released but some memory, breadcrumb, is needed, so we can recompute the value back.
-		The smaller a value is, the breadcrumb it leave will take up a larger portion of memory, until the size of a value is less then or equal to that of the size of breadcrumb, so uncomputing save no memory.
-		The more value uncomputed, breadcrumb accumulate, until most of the memory is used to record breadcrumb. This prohibit asymptotic improvement commonly seen in memory-cosntrainted algorithms.
+		Ironically, in a applicative language, due to boxing all values are small. This mean uncomputation, implemented naively, will only consume more memory, defeating the purpose.
 		We present a runtime system, implemented as a library, that is absolved of the above breadcrumb problem, seemingly storing recompute information in 0-bits and violating information theory.
 	\end{abstract}
 	
@@ -187,15 +187,285 @@
 	%% This command processes the author and affiliation and title
 	%% information and builds the first part of the formatted document.
 	\maketitle
-	\input{intro}
-	\input{uncomputation}
-	\input{pvz}
-	\input{call_stack}
-	\input{cache}
-	\input{eval}
-	\section{Case Study(2pg)}
-	\input{related}
-	\section{Constant Optimization}
+	bullet points:
+	\begin{enumerate}
+		% Intro (2pg)
+		\item The importance of saving memory
+		\item Pros of recomputation
+		\item The perlis of breadcrumbs (no idea how to make this positive)
+		\item Our approach leave no breadcrumb. formally state Guarantee
+		% Overview (3pg)
+		\item taba: explain
+		\item evicting a context
+		\item multiple eviction and no-breadcrumb
+		\item picture of eviction
+		\item replaying the context
+		\item recursive replaying
+		\item picture of replaying
+		% Core Idea (3pg)
+		\item Ordering all value reference (pointer) by logical time (tock)
+		\item Replay objects (checkpoints): thunk, input, storage
+		\item Approximate data structure: return largest key <= k
+		\item (Recursive) Replaying
+		% Language
+		\item Base Language (purely functional lambda calculus)
+		\item abstract machine
+		% Implementation (?pg)
+		\item The approximate data structure (splay list)
+		\item Bit counting
+		\item The abstract Machine
+		% Formal proof
+		\item Double O(1)
+		\item Correctness property
+		% Cache Policy(2pg)
+		\item Time and Space measurement
+		\item Union Find
+		\item GDSF
+		% Optimization
+		\item Unrolling
+		% Eval
+		\item Benchmark explanation
+		\item Setup
+		\item Result table
+		\item Explain Result
+		% Related Work (2pg)
+		\item Related Work(2pg)
+		\item Conclusion
+	\end{enumerate}
+	
+	adapton bullet points:
+	% core contribution of paper: tying trace/patch/recomputation formally
+	\begin{enumerate}
+		% intro:
+		\item abstract
+		\item other work: IC(traces)
+		\item cant do sharing/swapping/switching/interactive application
+		\item key concept: demand computation graph
+		\item formalization sneak peak
+		\item some numbers
+		\item spreadsheet example
+		
+		% overview: go backward!!!
+		\item show ref/get/set/thunk/force and demand computation graph
+		\item graph about sharing
+		\item subconcept: dirtying the dcg
+		\item why dirtying do swapping
+		
+		
+		\item textual description of the calculus (CBPV)
+		\item the changes to CBPV
+		\item greeks definition
+		\item describing trace
+		\item greeks type
+		\item greeks operational semantic
+		\item text operational semantic
+		\item text type
+		
+		\item patching a trace
+		\item formal syntax of spreadsheet example
+		\item API, and explaining memo
+		\item the core change propagation algorithm
+		\item explaining change propagation
+		\item why change propagation better then other approach
+
+		% eval
+		\item explaining setup for lazy/swapping/switching/batch
+		\item baseline and what is the machine setup
+		\item table of result
+		\item talk about some benchmark
+		\item explaining result
+		\item overhead
+		\item spreadsheet example - explain what is a spreadsheet
+		\item what it do to spreadsheet
+		\item talk about number'
+		
+		% related work
+		\item IC
+		\item self adjusting computation
+		\item FRP
+		\item conclusion
+	\end{enumerate}
+	\section{Intro}
+		\begin{table}
+		\begin{center}
+			\begin{tabular}{ |c|c| } 
+				\hline
+				Classical PL runtime & Zombie \\ 
+				\hline\hline
+				Address & Tock \\
+				Value & Value \\
+				Address Space & Tock Tree \\
+				Constructing Values & Constructing Values and saving Thunks \\
+				Reading from Address & Querying the Tock Tree \\
+				Garbage Collection & Eviction \\
+				Reading freed address: Impossible/Segfault & Recomputation \\
+				\hline
+			\end{tabular}
+			\caption{Side by side comparison between classical PL runtime and Zombie}
+		\end{center}
+	\end{table}
+	\section{Overview}	
+	\section{Core Language}	
+	Zombie works on a untyped, purely functional, call by value language. Program in the language then executed by the cek abstract machine.
+	
+	Below we sketch out the language and the cek machine. Note that this is the standard semantic - there is neither uncomputation nor replaying present. Uncomputation will be represented independently afterward.
+
+	\begin{mdframed}
+	\texttt{Name = N = A set of distinct names}
+		
+	\texttt{Expr = E := N | Left E | Right E | Case E N E N E | Prod E E | Zro E | Fst E}
+
+	\texttt{| Lam N E | Let N E E | App E E}
+
+	The source language
+	\end{mdframed}
+	
+	\begin{mdframed}
+		Continuation = K := Stop | KLeft K | KRight K | KCase Env N E N E K | KProd0 Env E K | KProd1 V K | KZro K | KFst K | KLet N Env E K | KApp0 Env E K | KApp1 V K
+	
+		\texttt{Environment = Env = (N, V)...}
+		
+		Value = V := VLeft V | VRight V | VProd V V | Clos Env N E
+		
+		State = Step Expr Env K | Apply K V
+
+		step: (Expr, Env, K) -> (Expr, Env, K)
+
+		step(N, Env, K) goto apply(K, Env(N))
+
+		step(Left X, Env, K) goto step(X, Env, KLeft K)
+		
+		step(Right X, Env, K) goto step(X, Env, KRight K)
+		
+		step(Case X LN L RN R, Env, K) goto step(X, Env, KCase LN L RN R Env)
+		
+		step(Prod L R, Env, K) goto step(L, Env, KProd0 K R)
+		
+		step(Zro X, Env, K) goto step(X, Env, KZro K)
+		
+		step(Fst X, Env, K) goto step(X, Env, KFst K)
+		
+		step(Let A = B in C, Env, K) goto step(B, Env, KLet A K C Env)
+		
+		step(App f x, Env, K) goto step(f, KApp0 K x)
+		
+		step(Lam N E, Env, K) goto apply(K, Clos Env(fv)... N E)
+
+		apply(KLeft K, V) goto apply(K, VLeft V)
+
+		apply(KRight K, V) goto apply(K, VRight V)
+		
+		apply(KCase Env LN L RN R K, VLeft V) goto (L, Env(LN := V), K)
+
+		apply(KCase Env LN L RN R K, VRight V) goto (R, Env(RN := V), K)
+		
+		apply(KProd0 Env R K, V) goto (R, Env, KProd1 V Env K)
+		
+		apply(KProd1 L K, V) goto apply(VProd L V, K)
+		
+		apply(KZro K, VProd X Y) goto apply(X, K)
+
+		apply(KFst K, VProd X Y) goto apply(Y, K)
+		
+		apply(KLet A Env C K, B) goto (C, Env(A := B), K)
+		
+		apply(KApp0 Env X K, V) goto (X, Env, KApp1 V K)
+		
+		apply(KApp1 (Clos Env N E) K, V) goto (E, Env(N := V), K)
+
+		Abstract Machine
+	\end{mdframed}
+	\section{Uncomputing and Recomputing}
+	\subsection{Tock}
+	The critical insight of zombie is that multiple abstract machine state compute the same value. To be more precise, if a machine state x step to a machine state y, x must have computed all value that y might compute, and possibly more. This indicate that we do not have to store all previous machine state - some might be dropped in favor of older ones.
+	
+	For this purpose, we introudced a global, logical time of 64 bit int, a tock. Tock start at 0, and increase by 1 on each transition(step/apply) in the abstract machine, and whenever a value is constructed. Conversely, all tock smaller then the current tock correspond to either a value, or a executed machine state, and vice versa.
+	
+	More importantly, given a value that correspond to tock X, any machine state with tock Y < X will recompute it. The largest Y under the constraint will do the least amount of transition computing said value.
+	\subsection{Tock Tree}
+	To pair a value with it's tock concretely(I mean in the runtime, the word look bad), and to allow a value to be recomputed, we abstract over the memory space(need better words), replacing pointers to value, to tocks instead. The actual values are stored on a global data structure, the tock tree. Reading from a pointer is replaced from querying the tock tree with the tock. The tock tree additionally store machine state as they are executed, so a value might be uncomputed and recomputed in the future with any earlier machine state.
+	
+	The tock tree is a binary search tree with the crucial property that lookup returns the largest node with key <= the input. This allow us to drop any node in the tock tree, with the exception of the leftmost node. Each node on the tock tree correspond to an execution of a transition, and contain:
+	\begin{enumerate}
+		\item The starting tock of the transition execution, t
+		\item An array of cell(actual value), created during the transition, of corresponding tock t+1, t+2...
+		\item The state it transit to.
+	\end{enumerate} 
+	Note that it store the transit-to state, but not the transit-from state, for that state is useless. Additionally, two tock is stored: the begin tock, t, and the end-tock, implicitly stored in the State. It is technically possible to compute the end-tock by adding t + 1 with length of the array.
+
+	Uncomputing is then merely deleting a non-leftmost value from the tock tree.
+
+	Formally speaking, 
+	\begin{mathpar}
+		before: Value = V := VProd V V | ...
+		
+		after: 
+		Value = V = Tock
+
+		Cell = Prod V V | ...
+		
+		before: 
+
+		State = Step Expr Env K | Apply K V
+
+		after:
+
+		State = Step Expr Env K T | Apply K V T
+		\end{mathpar}
+	\subsection{Replay}
+	During execution, the tock needed to be converted back to a Cell. 
+	It proceed as follow:
+	\begin{enumerate}
+		\item to convert tock t to a Cell:
+		\item query the tock tree on t to get a Node
+		\item if the cell is in the array, return said Cell
+		\item otherwise, issue a replay to t.
+	\end{enumerate}
+	A replay t suspend the current machine state, replacing it with the State in the Node returned from tock tree, and executing until the tock reach t. The old state is then resumed with the Cell at t.
+	Replay form a stack: a replay might more replay.
+	\begin{mathpar}
+		Replay = R := NoReplay | Replaying T R
+	\end{mathpar}
+	\section{Implementation}
+	\subsection{Tock Tree}
+	To exploit the temporal/spatial locality, and the 20-80 law of data access (cite?), the tock tree is implemented as a slight modification of a splay tree.
+
+	This design grant frequently-accessed data faster access time. Crucially, consecutive insertion take amortized constant time.
+	
+	The tock tree is then modified such that each node contain an additional parent and child pointer. The pointers form a list, which maintain an sorted representation of the tock tree. On a query, the tock tree do a binary search to find the innermost node, then follow the parent pointer if that node is greater then the key. This process is not recursive: the parent pointer is guaranteed to have a smaller node then the input key, as binary search will yield either the exact value, or the largest value less then the input, or the smallest value greater then the input.
+	\subsection{Picking Uncomputation Candidate}
+	Note that the guarantee we prove is independent of our policy that decide which value to uncompute (eviction policy).
+	\subsubsection{Union Find}
+	\subsubsection{The Policy}
+	\subsubsection{GDSF}
+	\subsection{Language Implementation}
+	For implementation simplicity and interoperability with other programs, zombie is implemented as a C++ library, and the Cells are ref-counted. Our evaluation compiles the program from the applicative programming language formalized above(give name), to C++ code.
+	\subsection{Optimization}
+	\subsubsection{Fast access path}
+	Querying the tock tree for every value is slow, as it requires multiple pointer traversal.
+	To combat this, each Value is a Tock paired with a weak reference, serving as a cache, to the Cell. When reading the value, if the weak reference is ok, the value is return immediately. Otherwise the default path is executed, and the weak reference is updated to point to the new Result.
+	\subsubsection{Loop Unrolling}
+	To avoid frequent creation of node object, and their insertion to the tock tree, multiple state transition is packed into one.
+	\subsection{Bit counting}
+	\section{Formal Guarantee}
+	\subsection{Safety}
+	Evaluating under replay semantic give same result as under normal semantic
+	\subsection{Liveness}
+	Evaluating will eventually produce a value
+	
+	Decreasing on lexicalgraphic ordering on the replay stack do work
+	\subsection{Performance}
+	memory consumption is linear to amount of object with O(1) access cost
+	\section{Evaluation}
+	%\input{intro}
+	%\input{uncomputation}
+	%\input{pvz}
+	%\input{call_stack}
+	%\input{cache}
+	%\input{eval}
+	%\section{Case Study(2pg)}
+	%\input{related}
+	%\section{Constant Optimization}
 %% If your work has an appendix, this is the place to put it.
 \appendix
 \end{document}
