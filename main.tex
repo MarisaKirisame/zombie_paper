@@ -187,128 +187,74 @@
 	%% This command processes the author and affiliation and title
 	%% information and builds the first part of the formatted document.
 	\maketitle
-	bullet points:
-	\begin{enumerate}
-		% Intro (2pg)
-		\item The importance of saving memory
-		\item Pros of recomputation
-		\item The perlis of breadcrumbs (no idea how to make this positive)
-		\item Our approach leave no breadcrumb. formally state Guarantee
-		% Overview (3pg)
-		\item taba: explain
-		\item evicting a context
-		\item multiple eviction and no-breadcrumb
-		\item picture of eviction
-		\item replaying the context
-		\item recursive replaying
-		\item picture of replaying
-		% Core Idea (3pg)
-		\item Ordering all value reference (pointer) by logical time (tock)
-		\item Replay objects (checkpoints): thunk, input, storage
-		\item Approximate data structure: return largest key <= k
-		\item (Recursive) Replaying
-		% Language
-		\item Base Language (purely functional lambda calculus)
-		\item abstract machine
-		% Implementation (?pg)
-		\item The approximate data structure (splay list)
-		\item Bit counting
-		\item The abstract Machine
-		% Formal proof
-		\item Double O(1)
-		\item Correctness property
-		% Cache Policy(2pg)
-		\item Time and Space measurement
-		\item Union Find
-		\item GDSF
-		% Optimization
-		\item Unrolling
-		% Eval
-		\item Benchmark explanation
-		\item Setup
-		\item Result table
-		\item Explain Result
-		% Related Work (2pg)
-		\item Related Work(2pg)
-		\item Conclusion
-	\end{enumerate}
-	
-	adapton bullet points:
-	% core contribution of paper: tying trace/patch/recomputation formally
-	\begin{enumerate}
-		% intro:
-		\item abstract
-		\item other work: IC(traces)
-		\item cant do sharing/swapping/switching/interactive application
-		\item key concept: demand computation graph
-		\item formalization sneak peak
-		\item some numbers
-		\item spreadsheet example
-		
-		% overview: go backward!!!
-		\item show ref/get/set/thunk/force and demand computation graph
-		\item graph about sharing
-		\item subconcept: dirtying the dcg
-		\item why dirtying do swapping
-		
-		
-		\item textual description of the calculus (CBPV)
-		\item the changes to CBPV
-		\item greeks definition
-		\item describing trace
-		\item greeks type
-		\item greeks operational semantic
-		\item text operational semantic
-		\item text type
-		
-		\item patching a trace
-		\item formal syntax of spreadsheet example
-		\item API, and explaining memo
-		\item the core change propagation algorithm
-		\item explaining change propagation
-		\item why change propagation better then other approach
-
-		% eval
-		\item explaining setup for lazy/swapping/switching/batch
-		\item baseline and what is the machine setup
-		\item table of result
-		\item talk about some benchmark
-		\item explaining result
-		\item overhead
-		\item spreadsheet example - explain what is a spreadsheet
-		\item what it do to spreadsheet
-		\item talk about number'
-		
-		% related work
-		\item IC
-		\item self adjusting computation
-		\item FRP
-		\item conclusion
-	\end{enumerate}
 	\section{Intro}
-		\begin{table}
-		\begin{center}
-			\begin{tabular}{ |c|c| } 
-				\hline
-				Classical PL runtime & Zombie \\ 
-				\hline\hline
-				Address & Tock \\
-				Value & Value \\
-				Address Space & Tock Tree \\
-				Constructing Values & Constructing Values and saving Thunks \\
-				Reading from Address & Querying the Tock Tree \\
-				Garbage Collection & Eviction \\
-				Reading freed address: Impossible/Segfault & Recomputation \\
-				\hline
-			\end{tabular}
-			\caption{Side by side comparison between classical PL runtime and Zombie}
-		\end{center}
-	\end{table}
 	\section{Overview}	
-	\section{Core Language}	
-	Zombie works on a untyped, purely functional, call by value language. Program in the language then executed by the cek abstract machine.
+	FIGURE draw attention to KEY IDEA
+
+explain argument
+key steps
+dependency between steps
+focus on the dependency
+
+Section: Tocks (5pg long)
+tock: exploit linear property of CEK machine
+talk about time instead of memory
+mapping stored in an ordered tree
+Context (not a section)
+map is sparse
+lookup fail, need to recompute
+also store CEK context
+
+Section: The CEKR Machine (???)
+Replay Stack
+the section with lots of greeks
+argue about progress
+
+Section: Implementation (3pg long)
+Heuristic
+Loop Unrolling
+
+Key question: How to get the replay stack small?
+Key question: Garbage Collection/Eager Eviction
+
+Summarize the meeting into key step
+
+Sad Path
+
+Replay Stack
+
+Double O(1)
+
+Quality
+
+
+Another kind of thing in tock tree.
+
+Transition from X -> Y
+
+Allocated during the transition
+
+Map from tock to Cell | Context
+
+\section{Core Language}	
+Zombie works on a untyped, purely functional, call by value language. Program in the language is then executed by the CEK abstract machine.
+
+We had deliberately chosen to represent our semantic by the CEK machine, as it have two crucial property:
+
+\begin{enumerate}
+	\item It is linear. An execution of a program can be characterized as a (possibly infinite) sequence the abstract machine transit through.
+
+	\item Each step take a small, bounded amount of work, and especially for lookup/alloc.
+\end{enumerate}
+
+\begin{enumerate}
+	\item Note how our implementation is different from a CEK Machine: In particular, we had made pointer and pointer lookup explicit, as we later have to abstract over and reason over them. 
+\end{enumerate}
+
+Section: CEK Machine: pointers, lookup, allocate substeps (2.5-3pg long)
+Figure: draw on whiteboard, take screenshot.
 	
-	Below we sketch out the language and the cek machine. Note that this is the standard semantic - there is neither uncomputation nor replaying present. Uncomputation will be represented independently afterward.
+Below we sketch out the language and the cek machine. Note that this is the standard semantic - there is neither uncomputation nor replaying present. Uncomputation will be represented independently afterward.
 
 	\begin{mdframed}
 	\texttt{Name = N = A set of distinct names}
@@ -319,64 +265,82 @@
 
 	The source language
 	\end{mdframed}
-	
 	\begin{mdframed}
-		Continuation = K := Stop | KLeft K | KRight K | KCase Env N E N E K | KProd0 Env E K | KProd1 V K | KZro K | KFst K | KLet N Env E K | KApp0 Env E K | KApp1 V K
+		Heap = H = an abstract key value store
+		
+		Pointer<X> = P<X> = key into heap of value type X
+		
+		Alloc: (X, H) -> (Pointer<X>, H)
+		Lookup: (Pointer<X>, H) -> X
+		
+		Reshape it to be how we want
+		
+		Continuation = K := P<KCell>
+		
+		KCell := Stop | KLeft K | KRight K | KCase Env N E N E K | KProd0 Env E K | KProd1 V K | KZro K | KFst K | KLet N Env E K | KApp0 Env E K | KApp1 V K
+	
+		Value = V = P<VCell>
+		
+		VCell := VLeft V | VRight V | VProd V V | Clos Env N E
 	
 		\texttt{Environment = Env = (N, V)...}
-		
-		Value = V := VLeft V | VRight V | VProd V V | Clos Env N E
-		
+				
 		State = Step Expr Env K | Apply K V
 
-		step: (Expr, Env, K) -> (Expr, Env, K)
+		Step(N, Env, K), H goto apply(K, Env(N)), H
 
-		step(N, Env, K) goto apply(K, Env(N))
+		Step(Left X, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KLeft K, H)
+		
+		Step(Right X, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KRight K, H)
+		
+		Step(Case X LN L RN R, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KCase LN L RN R Env, H)
+		
+		Step(Prod L R, Env, K), H goto Step(L, Env, P), H' where (P, H') = Alloc(KProd0 K R, H)
+		
+		Step(Zro X, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KZro K, H)
+		
+		Step(Fst X, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KFst K, H)
+		
+		Step(Let A = B in C, Env, K), H goto Step(B, Env, P), H' where (P, H') = Alloc(KLet A K C Env, H)
+		
+		Step(App f x, Env, K), H goto Step(f, P), H' where (P, H') = Alloc(KApp0 K x, H)
+		
+		Step(Lam N E, Env, K), H goto Apply(K, P), H' where (P, H') = Alloc(Clos Env(fv)... N E, H)
 
-		step(Left X, Env, K) goto step(X, Env, KLeft K)
-		
-		step(Right X, Env, K) goto step(X, Env, KRight K)
-		
-		step(Case X LN L RN R, Env, K) goto step(X, Env, KCase LN L RN R Env)
-		
-		step(Prod L R, Env, K) goto step(L, Env, KProd0 K R)
-		
-		step(Zro X, Env, K) goto step(X, Env, KZro K)
-		
-		step(Fst X, Env, K) goto step(X, Env, KFst K)
-		
-		step(Let A = B in C, Env, K) goto step(B, Env, KLet A K C Env)
-		
-		step(App f x, Env, K) goto step(f, KApp0 K x)
-		
-		step(Lam N E, Env, K) goto apply(K, Clos Env(fv)... N E)
+		Apply(P, V) = apply(Lookup(P), V)
+		apply(KLeft K, V), H goto Apply(K, P), H' where (P, H') = Alloc(VLeft V, H)
 
-		apply(KLeft K, V) goto apply(K, VLeft V)
+		apply(KRight K, V), H goto Apply(K, P), H' where (P, H') = Alloc(VRight V, H)
+		
+		apply(KCase Env LN L RN R K, V), H goto 
+		  if LookUp(V, H) = VLeft V then Step(L, Env(LN := V), K)
+		  = VRight V then Step(R, Env(RN := V), K)
+		
+		apply(KProd0 Env R K, V), H goto Step(R, Env, P), H' where (P, H') = Alloc(KProd1 V Env K, H)
+		
+		apply(KProd1 L K, V), H goto Apply(P, K), H' where (P, H') = Alloc(VProd L V, H)
+		
+		apply(KZro K, V), H goto Apply(X, K), H where VProd X Y = LookUp(V, H)
 
-		apply(KRight K, V) goto apply(K, VRight V)
+		apply(KFst K, V), H goto Apply(Y, K), H where VProd X Y = LookUp(V, H)
 		
-		apply(KCase Env LN L RN R K, VLeft V) goto (L, Env(LN := V), K)
-
-		apply(KCase Env LN L RN R K, VRight V) goto (R, Env(RN := V), K)
+		apply(KLet A Env C K, B), H goto Step(C, Env(A := B), K), H
 		
-		apply(KProd0 Env R K, V) goto (R, Env, KProd1 V Env K)
+		apply(KApp0 Env X K, V) goto Step(X, Env, P) where (P, H'), H' = Alloc(KApp1 V K, H)
 		
-		apply(KProd1 L K, V) goto apply(VProd L V, K)
-		
-		apply(KZro K, VProd X Y) goto apply(X, K)
-
-		apply(KFst K, VProd X Y) goto apply(Y, K)
-		
-		apply(KLet A Env C K, B) goto (C, Env(A := B), K)
-		
-		apply(KApp0 Env X K, V) goto (X, Env, KApp1 V K)
-		
-		apply(KApp1 (Clos Env N E) K, V) goto (E, Env(N := V), K)
+		apply(KApp1 F K, V), H goto Step(E, Env(N := V), K), H where (Clos Env N E) = LookUp(V, H)
 
 		Abstract Machine
 	\end{mdframed}
 	\section{Uncomputing and Recomputing}
 	\subsection{Tock}
+	Number every step and introduce tock, sitting between memory and program execution
+	instead of referrring to point in space, refer to point in time.
+
+	Turn pointers of space to pointers of path
+	
+	\todo{introduce an allocate step. allocation or normal transition advance the tock and get assigned a numbering}
+	
 	The critical insight of zombie is that multiple abstract machine state compute the same value. To be more precise, if a machine state x step to a machine state y, x must have computed all value that y might compute, and possibly more. This indicate that we do not have to store all previous machine state - some might be dropped in favor of older ones.
 	
 	For this purpose, we introudced a global, logical time of 64 bit int, a tock. Tock start at 0, and increase by 1 on each transition(step/apply) in the abstract machine, and whenever a value is constructed. Conversely, all tock smaller then the current tock correspond to either a value, or a executed machine state, and vice versa.
@@ -397,20 +361,21 @@
 
 	Formally speaking, 
 	\begin{mathpar}
-		before: Value = V := VProd V V | ...
+		before: Value = P<VCell>
 		
-		after: 
-		Value = V = Tock
-
-		Cell = Prod V V | ...
+		after: Value = Tock
 		
-		before: 
+		TockTree: ???
+		
+		query: (TockTree, Tock) -> (Tock, Node)
+		
+		insert: (TockTree, Node) -> TockTree
+		
+		Node = (, [Cell], State)
+		
+		before: State = Step Expr Env K | Apply K V
 
-		State = Step Expr Env K | Apply K V
-
-		after:
-
-		State = Step Expr Env K T | Apply K V T
+		after: State = Step Expr Env K T | Apply K V T
 		\end{mathpar}
 	\subsection{Replay}
 	During execution, the tock needed to be converted back to a Cell. 
@@ -424,7 +389,9 @@
 	A replay t suspend the current machine state, replacing it with the State in the Node returned from tock tree, and executing until the tock reach t. The old state is then resumed with the Cell at t.
 	Replay form a stack: a replay might more replay.
 	\begin{mathpar}
-		Replay = R := NoReplay | Replaying T R
+		ReplayContinuation = RK := RKApply V | RKCase Env N E N E K | RKZro K | RKFst K
+
+		Replay = R := NoReplay State | Replaying T RK R
 	\end{mathpar}
 	\section{Implementation}
 	\subsection{Tock Tree}
