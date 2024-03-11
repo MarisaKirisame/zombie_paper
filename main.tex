@@ -388,9 +388,9 @@ Below we sketch out the language and the cek machine. Note that this is the stan
 	A replay t suspend the current machine state, replacing it with the State in the Node returned from tock tree, and executing until the tock reach t. The old state is then resumed with the Cell at t.
 	Replay is recursive: a replay might issue lookup that require more replay.
 	\begin{mathpar}
-		ReplayContinuation = RK := RKApply V | RKCase Env N E N E K | RKZro K | RKFst K
+		ReplayContinuation = RK := NoReplay | RKApply V Tock RK | RKCase Tock Env N E N E K | RKZro Tock K | RKFst Tock K
 
-		Replay = R := NoReplay State | Replaying State T RK R
+		Replay = R := (State, RK)
 	\end{mathpar}
 	
 	\begin{mathpar}
@@ -401,11 +401,7 @@ Below we sketch out the language and the cek machine. Note that this is the stan
 		FromTock(tt, t) = 
 		  let (Node cells state, nt) = query(tt, t) in
 		  if t < nt + 1 + len(cells) then cells[t - nt - 1] else state
-		 
-		GetState: Replay -> State
-		GetState(NoReplay st) = st
-		GetState(Replaying st T RK R) = st
-		
+
 		goto: (Replay, TockTree) -> (Replay, TockTree)
 		State = Step Expr Env K | Apply K V
 		
