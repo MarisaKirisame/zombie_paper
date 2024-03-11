@@ -349,13 +349,12 @@ Below we sketch out the language and the cek machine. Note that this is the stan
 	\subsection{Tock Tree}
 	To pair a value with it's tock concretely(I mean in the runtime, the word look bad), and to allow a value to be recomputed, we abstract over the memory space(need better words), replacing pointers to value, to tocks instead. The actual values are stored on a global data structure, the tock tree. Reading from a pointer is replaced from querying the tock tree with the tock. The tock tree additionally store machine state as they are executed, so a value might be uncomputed and recomputed in the future with any earlier machine state.
 	
-	The tock tree is a binary search tree with the crucial property that lookup returns the largest node with key <= the input. This allow us to drop any node in the tock tree, with the exception of the leftmost node. Each node on the tock tree correspond to an execution of a transition, and contain:
+	The tock tree is a binary search tree with the crucial property that lookup returns the largest node with key <= the input. This allow us to drop any node in the tock tree, with the exception of the leftmost node. Each node on the tock tree, at point t, correspond to an execution of a transition, that started at tock t, and contain:
 	\begin{enumerate}
-		\item The starting tock of the transition execution, t
 		\item An array of cell(actual value), created during the transition, of corresponding tock t+1, t+2...
 		\item The state it transit to.
 	\end{enumerate} 
-	Note that it store the transit-to state, but not the transit-from state, for that state is useless. Additionally, two tock is stored: the begin tock, t, and the end-tock, implicitly stored in the State. It is technically possible to compute the end-tock by adding t + 1 with length of the array.
+	Note that it store the transit-to state, but not the transit-from state, for that state is useless.
 
 	Uncomputing is then merely deleting a non-leftmost value from the tock tree.
 
@@ -371,7 +370,7 @@ Below we sketch out the language and the cek machine. Note that this is the stan
 		
 		insert: (TockTree, Node) -> TockTree
 		
-		Node = (, [Cell], State)
+		Node = ([KCell | VCell], State)
 		
 		before: State = Step Expr Env K | Apply K V
 
@@ -387,11 +386,71 @@ Below we sketch out the language and the cek machine. Note that this is the stan
 		\item otherwise, issue a replay to t.
 	\end{enumerate}
 	A replay t suspend the current machine state, replacing it with the State in the Node returned from tock tree, and executing until the tock reach t. The old state is then resumed with the Cell at t.
-	Replay form a stack: a replay might more replay.
+	Replay is recursive: a replay might issue lookup that require more replay.
 	\begin{mathpar}
 		ReplayContinuation = RK := RKApply V | RKCase Env N E N E K | RKZro K | RKFst K
 
-		Replay = R := NoReplay State | Replaying T RK R
+		Replay = R := NoReplay State | Replaying State T RK R
+	\end{mathpar}
+	
+	\begin{mathpar}
+		FromTock: (TockTree, Tock) -> VCell | KCell | State
+		From The tock tree, try to get the corresponding cell.
+		If the cell is uncomputed, return the closest state that can recompute it.
+
+		FromTock(tt, t) = 
+		  let (Node cells state, nt) = query(tt, t) in
+		  if t < nt + 1 + len(cells) then cells[t - nt - 1] else state
+		 
+		GetState: Replay -> State
+		GetState(NoReplay st) = st
+		GetState(Replaying st T RK R) = st
+		
+		goto: (Replay, TockTree) -> (Replay, TockTree)
+		State = Step Expr Env K | Apply K V
+		
+		Step(N, Env, K), H goto apply(K, Env(N)), H
+		
+		Step(Left X, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KLeft K, H)
+		
+		Step(Right X, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KRight K, H)
+		
+		Step(Case X LN L RN R, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KCase LN L RN R Env, H)
+		
+		Step(Prod L R, Env, K), H goto Step(L, Env, P), H' where (P, H') = Alloc(KProd0 K R, H)
+		
+		Step(Zro X, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KZro K, H)
+		
+		Step(Fst X, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KFst K, H)
+		
+		Step(Let A = B in C, Env, K), H goto Step(B, Env, P), H' where (P, H') = Alloc(KLet A K C Env, H)
+		
+		Step(App f x, Env, K), H goto Step(f, P), H' where (P, H') = Alloc(KApp0 K x, H)
+		
+		Step(Lam N E, Env, K), H goto Apply(K, P), H' where (P, H') = Alloc(Clos Env(fv)... N E, H)
+		
+		Apply(P, V) = apply(Lookup(P), V)
+		apply(KLeft K, V), H goto Apply(K, P), H' where (P, H') = Alloc(VLeft V, H)
+		
+		apply(KRight K, V), H goto Apply(K, P), H' where (P, H') = Alloc(VRight V, H)
+		
+		apply(KCase Env LN L RN R K, V), H goto 
+		if LookUp(V, H) = VLeft V then Step(L, Env(LN := V), K)
+		= VRight V then Step(R, Env(RN := V), K)
+		
+		apply(KProd0 Env R K, V), H goto Step(R, Env, P), H' where (P, H') = Alloc(KProd1 V Env K, H)
+		
+		apply(KProd1 L K, V), H goto Apply(P, K), H' where (P, H') = Alloc(VProd L V, H)
+		
+		apply(KZro K, V), H goto Apply(X, K), H where VProd X Y = LookUp(V, H)
+		
+		apply(KFst K, V), H goto Apply(Y, K), H where VProd X Y = LookUp(V, H)
+		
+		apply(KLet A Env C K, B), H goto Step(C, Env(A := B), K), H
+		
+		apply(KApp0 Env X K, V) goto Step(X, Env, P) where (P, H'), H' = Alloc(KApp1 V K, H)
+		
+		apply(KApp1 F K, V), H goto Step(E, Env(N := V), K), H where (Clos Env N E) = LookUp(V, H)
 	\end{mathpar}
 	\section{Implementation}
 	\subsection{Tock Tree}
