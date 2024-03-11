@@ -292,55 +292,77 @@ Below we sketch out the language and the cek machine. Note that this is the stan
 	\caption{Definitions for the CEK Machine}
 	\end{figure}
 	\begin{mdframed}
-		Step(N, Env, K), H goto apply(K, Env(N)), H
-
-		Step(Left X, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KLeft K, H)
-		
-		Step(Right X, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KRight K, H)
-		
-		Step(Case X LN L RN R, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KCase LN L RN R Env, H)
-		
-		Step(Prod L R, Env, K), H goto Step(L, Env, P), H' where (P, H') = Alloc(KProd0 K R, H)
-		
-		Step(Zro X, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KZro K, H)
-		
-		Step(Fst X, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KFst K, H)
-		
-		Step(Let A = B in C, Env, K), H goto Step(B, Env, P), H' where (P, H') = Alloc(KLet A K C Env, H)
-		
-		Step(App f x, Env, K), H goto Step(f, P), H' where (P, H') = Alloc(KApp0 K x, H)
-		
-		Step(Lam N E, Env, K), H goto Apply(K, P), H' where (P, H') = Alloc(Clos Env(fv)... N E, H)
-
-		Apply(P, V) = apply(Lookup(P), V)
-		apply(KLeft K, V), H goto Apply(K, P), H' where (P, H') = Alloc(VLeft V, H)
-
-		apply(KRight K, V), H goto Apply(K, P), H' where (P, H') = Alloc(VRight V, H)
-		
-		apply(KCase Env LN L RN R K, V), H goto 
-		  if LookUp(V, H) = VLeft V then Step(L, Env(LN := V), K)
-		  = VRight V then Step(R, Env(RN := V), K)
-		
-		apply(KProd0 Env R K, V), H goto Step(R, Env, P), H' where (P, H') = Alloc(KProd1 V Env K, H)
-		
-		apply(KProd1 L K, V), H goto Apply(P, K), H' where (P, H') = Alloc(VProd L V, H)
-		
-		apply(KZro K, V), H goto Apply(X, K), H where VProd X Y = LookUp(V, H)
-
-		apply(KFst K, V), H goto Apply(Y, K), H where VProd X Y = LookUp(V, H)
-		
-		apply(KLet A Env C K, B), H goto Step(C, Env(A := B), K), H
-		
-		apply(KApp0 Env X K, V) goto Step(X, Env, P) where (P, H'), H' = Alloc(KApp1 V K, H)
-		
-		apply(KApp1 F K, V), H goto Step(E, Env(N := V), K), H where (Clos Env N E) = LookUp(V, H)
-
-		Abstract Machine
+		\[
+		\inferrule{ }{\text{State}, \text{Heap} \leadsto \text{State}, \text{Heap}}
+		\]
+		\[
+		\inferrule{ }{\text{Step}(\text{N}, \text{Env}, \text{K}), \text{H} \leadsto \text{Apply}(\text{K}, \text{Env}(\text{N})), \text{H}}
+		\]
+		\[
+		\inferrule{\text{Alloc}(\text{KLeft}\ \text{K}, \text{H}) = (\text{P}, \text{H'})}{\text{Step}(\text{Left}\ \text{X}, \text{Env}, \text{K}), \text{H} \leadsto \text{Step}(\text{X}, \text{Env}, \text{P}), \text{H'}}
+		\]
+		\[
+		\inferrule{\text{Alloc}(\text{KRight}\ \text{K}, \text{H}) = (\text{P}, \text{H'})}{\text{Step}(\text{Right}\ \text{X}, \text{Env}, \text{K}), \text{H} \leadsto \text{Step}(\text{X}, \text{Env}, \text{P}), \text{H'}}
+		\]
+		\[
+		\inferrule{\text{Alloc}(\text{KProd0}\ \text{K}\ \text{R}, \text{H}) = (\text{P}, \text{H'})}{\text{Step}(\text{Prod}\ \text{L}\ \text{R}, \text{Env}, \text{K}), \text{H} \leadsto \text{Step}(\text{L}, \text{Env}, \text{P}), \text{H'}}
+		\]
+		\[
+		\inferrule{\text{Alloc}(\text{KZro}\ \text{K}, \text{H}) = (\text{P}, \text{H'})}{\text{Step}(\text{Zro}\ \text{X}, \text{Env}, \text{K}), \text{H} \leadsto \text{Step}(\text{X}, \text{Env}, \text{P}), \text{H'}}
+		\]
+		\[
+		\inferrule{\text{Alloc}(\text{KFst}\ \text{K}, \text{H}) = (\text{P}, \text{H'})}{\text{Step}(\text{Fst}\ \text{X}, \text{Env}, \text{K}), \text{H} \leadsto \text{Step}(\text{X}, \text{Env}, \text{P}), \text{H'}}
+		\]
+		\[
+		\inferrule{\text{Alloc}(\text{KCase}\ \text{LN}\ \text{L}\ \text{RN}\ \text{R}\ \text{Env}, \text{H}) = (\text{P}, \text{H'})}{\text{Step}(\text{Case}\ \text{X}\ \text{LN}\ \text{L}\ \text{RN}\ \text{R}, \text{Env}, \text{K}), \text{H} \leadsto \text{Step}(\text{X}, \text{Env}, \text{P}), \text{H'}}
+		\]
+		\[
+		\inferrule{\text{Alloc}(\text{KLet}\ \text{A}\ \text{K}\ \text{C}\ \text{Env}, \text{H}) = (\text{P}, \text{H'})}{\text{Step}(\text{Let}\ \text{A}\ \text{B}\ \text{C}, \text{Env}, \text{K}), \text{H} \leadsto \text{Step}(\text{B}, \text{Env}, \text{P}), \text{H'}}
+		\]
+		\[
+		\inferrule{\text{Alloc}(\text{KApp0}\ \text{K}\ \text{X}, \text{H}) = (\text{P}, \text{H'})}{\text{Step}(\text{App}\ \text{F}\ \text{X}, \text{Env}, \text{K}), \text{H} \leadsto \text{Step}(\text{F}, \text{P}), \text{H'}}
+		\]
+		\[
+		\inferrule{\text{Alloc}(\text{Clos}\ \text{Env}(\text{fv})\dots \text{N}\ \text{E}, \text{H}) = (\text{P}, \text{H'})}{\text{Step}(\text{Lam}\ \text{N}\ \text{E}, \text{Env}, \text{K}), \text{H} \leadsto \text{Apply}(\text{K}, \text{P}), \text{H'}}
+		\]
+		\[
+		\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KLeft}\ \text{K} \\ \text{Alloc}(\text{VLeft}\ \text{V}, \text{H}) = (\text{P}, \text{H'})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Apply}(\text{K}, \text{P}), \text{H'}}
+		\]
+		\[
+		\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KRight}\ \text{K} \\ \text{Alloc}(\text{VRight}\ \text{V}, \text{H}) = (\text{P}, \text{H'})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Apply}(\text{K}, \text{P}), \text{H'}}
+		\]
+		\[
+		\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KCase}\ \text{Env}\ \text{LN}\ \text{L}\ \text{RN}\ \text{R}\ \text{K} \\ \text{Lookup}(\text{V}, \text{H}) = \text{VLeft}\ \text{V}}{\text{Apply}(\text{P}, \text{V}) \leadsto \text{Step}(\text{L}, \text{Env}(\text{LN} := \text{V}), \text{K})}
+		\]
+		\[
+		\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KCase}\ \text{Env}\ \text{LN}\ \text{L}\ \text{RN}\ \text{R}\ \text{K} \\ \text{Lookup}(\text{V}, \text{H}) = \text{VRight}\ \text{V}}{\text{Apply}(\text{P}, \text{V}) \leadsto \text{Step}(\text{R}, \text{Env}(\text{RN} := \text{V}), \text{K})}
+		\]
+		\[
+		\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KProd0}\ \text{Env}\ \text{R}\ \text{K} \\ \text{Alloc}(\text{KProd1}\ \text{V}\ \text{Env}\ \text{K}, \text{H}) = (\text{P}, \text{H'})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Apply}(\text{K}, \text{P}), \text{H'}}
+		\]
+		\[
+		\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KProd1}\ \text{L}\ \text{K} \\ \text{Alloc}(\text{VProd}\ \text{L}\ \text{V}, \text{H}) = (\text{P}, \text{H'})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Apply}(\text{K}, \text{P}), \text{H'}}
+		\]
+		\[
+		\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KZro}\ \text{K} \\ \text{Lookup}(\text{V}, \text{H}) = (\text{VProd}\ \text{X}\ \text{Y})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Apply}(\text{K}, \text{X}), \text{H'}}
+		\]
+		\[
+		\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KFst}\ \text{K} \\ \text{Lookup}(\text{V}, \text{H}) = (\text{VProd}\ \text{X}\ \text{Y})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Apply}(\text{K}, \text{Y}), \text{H'}}
+		\]
+		\[
+		\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KLet}\ \text{A}\ \text{Env}\ \text{C}\ \text{K}}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Step}(\text{C}, \text{Env}(\text{A} := \text{V}), \text{K}), \text{H'}}
+		\]
+		\[
+		\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KApp0}\ \text{Env}\ \text{X}\ \text{K} \\ \text{Alloc}(\text{KApp1}\ \text{V}\ \text{K}, \text{H}) = (\text{P}, \text{H'})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Step}(\text{X}, \text{Env}, \text{P}), \text{H'}}
+		\]
+		\[
+		\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KApp1}\ \text{F}\ \text{K} \\ \text{Lookup}(\text{F}, \text{H}) = (\text{Clos}\ \text{Env}\ \text{N}\ \text{E}, \text{H})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Step}(\text{E}, \text{Env}(\text{N} := \text{V}), \text{K}), \text{H'}}		
+		\]
 	\end{mdframed}
 	\section{Uncomputing and Recomputing}
 	\subsection{Tock}
 	Number every step and introduce tock, sitting between memory and program execution
-	instead of referrring to point in space, refer to point in time.
+	instead of referring to point in space, refer to point in time.
 
 	Turn pointers of space to pointers of path
 	
@@ -348,7 +370,7 @@ Below we sketch out the language and the cek machine. Note that this is the stan
 	
 	The critical insight of zombie is that multiple abstract machine state compute the same value. To be more precise, if a machine state x step to a machine state y, x must have computed all value that y might compute, and possibly more. This indicate that we do not have to store all previous machine state - some might be dropped in favor of older ones.
 	
-	For this purpose, we introudced a global, logical time of 64 bit int, a tock. Tock start at 0, and increase by 1 on each transition(step/apply) in the abstract machine, and whenever a value is constructed. Conversely, all tock smaller then the current tock correspond to either a value, or a executed machine state, and vice versa.
+	For this purpose, we introduced a global, logical time of 64 bit int, a tock. Tock start at 0, and increase by 1 on each transition(step/apply) in the abstract machine, and whenever a value is constructed. Conversely, all tock smaller then the current tock correspond to either a value, or a executed machine state, and vice versa.
 	
 	More importantly, given a value that correspond to tock X, any machine state with tock Y < X will recompute it. The largest Y under the constraint will do the least amount of transition computing said value.
 	\subsection{Tock Tree}
