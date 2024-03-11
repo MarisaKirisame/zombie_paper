@@ -47,6 +47,7 @@
 %%
 \documentclass[acmsmall]{acmart}
 \usepackage{mathpartir}
+\input{macros.tex}
 
 %%
 %% \BibTeX command to typeset BibTeX logo in the docs
@@ -109,7 +110,6 @@
 \usepackage{mdframed}
 \newcommand\todo[1]{\textcolor{red}{#1}}
 \newcommand\pavel{\todo{pavel look here} }
-\newcommand\tablewidth{25em}
 
 %%
 %% end of the preamble, start of the body of the document source.
@@ -256,41 +256,66 @@ Section: CEK Machine: pointers, lookup, allocate substeps (2.5-3pg long)
 Figure: draw on whiteboard, take screenshot.
 	
 Below we sketch out the language and the cek machine. Note that this is the standard semantic - there is neither uncomputation nor replaying present. Uncomputation will be represented independently afterward.
-	\begin{figure}
-	\begin{tabular}{lllp{\tablewidth}}
+
+\newcommand{\mytableshape}{p{6em} p{2.6em} p{1em} p{0.45\textwidth}}
+\begin{figure}
+	\begin{tabular}{\mytableshape}
 	Name & $N$ & $::=$ & A set of distinct names \\
-	Expr & $E$ & $::=$ & $N\mid \text{Let}\ N\ E\ E\ \mid \text{Lam}\ N\ E\ \mid \text{App}\ E\ E\ \mid$ \\
-	& & & $ \text{Prod}\ E\ E\ \mid \text{Zro}\ E\ \mid \text{Fst}\ E\ \mid $ \\
-	& & & $ \text{Left}\ E\mid\text{Right}\ E\mid \text{Case}\ E\ N\ E\ N\ E $ \\
+	Expr & $E$ & $::=$ & $
+		N \mid
+		\sLet~N~E~E \mid
+		\sLam~N~E \mid
+		\sApp~E~E \mid
+		\sProd~E~E \mid
+		\sZro~E \mid
+		\sFst~E \mid
+		\sLeft~E \mid
+		\sRight~E \mid
+		\sCase~E~N~E~N~E $
 	\end{tabular}
 	\caption{The source language}
-	\end{figure}
+\end{figure}
 
-	\begin{figure}
-	\begin{tabular}{lllp{\tablewidth}}
+\begin{figure}
+	\begin{tabular}{\mytableshape}
 	Heap & $H$ & $::=$ & An abstract key value store \\
-	Pointer<X> & P<X> & $::=$ & Key into heap with value type X \\
-	Alloc & & : & (X, H) -> (Pointer<X>, H) \\
-	Lookup & & : & (Pointer<X>, H) -> X \\
+	Pointer$\langle X \rangle$ & $P\langle X \rangle$ & $::=$ & Key into heap with value type $X$ \\
+	Alloc & & : & $(X, H) \to (\text{Pointer}\langle X \rangle, H)$ \\
+	Lookup & & : & $(\text{Pointer}\langle X \rangle, H) \to X$ \\
 	\end{tabular}
 	\caption{Heap API}
-	\end{figure}
-	\begin{figure}
-	\begin{tabular}{lllp{\tablewidth}}
-		Continuation & K & $::=$ & P<KCell> \\
+\end{figure}
 
-		KCell & & $::=$ & Stop | KLet N Env E K | KApp0 Env E K | KApp1 V K | \\
-		& & & KProd0 Env E K | KProd1 V K | KZro K | KFst K | \\
-		& & & KLeft K | KRight K | KCase Env N E N E K \\
-		
-		Value & V & ::= & P<VCell> \\
-		VCell & & ::= & Clos Env N E | VProd V V | VLeft V | VRight V \\
-		
-		Environment & Env & ::= & (N, V)\dots \\
-		State & & ::= & Step Expr Env K | Apply K V \\
+\begin{figure}
+	\begin{tabular}{\mytableshape}
+	Continuation & $K$ & $::=$ & $P \langle \KCell \rangle$ \\
+
+	KCell & & $::=$ & $
+		\Stop \mid
+		\KLet~N~\Env~E~K \mid
+		\KApp_0~\Env~E~K \mid
+		\KApp_1~V~K \mid
+		\KProd_0~\Env~E~K \mid
+		\KProd_1~V~K \mid
+		\KZro~K \mid
+		\KFst~K \mid
+		\KLeft~K \mid
+		\KRight~K \mid
+		\KCase~\Env~N~E~N~E~K $ \\
+
+	Value & $V$ & $::=$ & $P\langle \VCell \rangle$ \\
+	VCell & & $::=$ & $
+		\Clos~\Env~N~E \mid
+		\VProd~V~V \mid
+		\VLeft~V \mid
+		\VRight~V $ \\
+
+	Environment & $\Env$ & ::= & $(N, V) \dots$ \\
+	State & & ::= & $\Step~{\color{red}\text{Expr}}~\Env~K \mid \Apply~K~V $ \\
 	\end{tabular}
 	\caption{Definitions for the CEK Machine}
-	\end{figure}
+\end{figure}
+
 	\begin{mdframed}
 		Step(N, Env, K), H goto apply(K, Env(N)), H
 
