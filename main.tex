@@ -109,6 +109,7 @@
 \usepackage{mdframed}
 \newcommand\todo[1]{\textcolor{red}{#1}}
 \newcommand\pavel{\todo{pavel look here} }
+\newcommand\tablewidth{25em}
 
 %%
 %% end of the preamble, start of the body of the document source.
@@ -255,38 +256,42 @@ Section: CEK Machine: pointers, lookup, allocate substeps (2.5-3pg long)
 Figure: draw on whiteboard, take screenshot.
 	
 Below we sketch out the language and the cek machine. Note that this is the standard semantic - there is neither uncomputation nor replaying present. Uncomputation will be represented independently afterward.
+	\begin{figure}
+	\begin{tabular}{lllp{\tablewidth}}
+	Name & $N$ & $::=$ & A set of distinct names \\
+	Expr & $E$ & $::=$ & $N\mid \text{Let}\ N\ E\ E\ \mid \text{Lam}\ N\ E\ \mid \text{App}\ E\ E\ \mid$ \\
+	& & & $ \text{Prod}\ E\ E\ \mid \text{Zro}\ E\ \mid \text{Fst}\ E\ \mid $ \\
+	& & & $ \text{Left}\ E\mid\text{Right}\ E\mid \text{Case}\ E\ N\ E\ N\ E $ \\
+	\end{tabular}
+	\caption{The source language}
+	\end{figure}
 
+	\begin{figure}
+	\begin{tabular}{lllp{\tablewidth}}
+	Heap & $H$ & $::=$ & An abstract key value store \\
+	Pointer<X> & P<X> & $::=$ & Key into heap with value type X \\
+	Alloc & & : & (X, H) -> (Pointer<X>, H) \\
+	Lookup & & : & (Pointer<X>, H) -> X \\
+	\end{tabular}
+	\caption{Heap API}
+	\end{figure}
+	\begin{figure}
+	\begin{tabular}{lllp{\tablewidth}}
+		Continuation & K & $::=$ & P<KCell> \\
+
+		KCell & & $::=$ & Stop | KLet N Env E K | KApp0 Env E K | KApp1 V K | \\
+		& & & KProd0 Env E K | KProd1 V K | KZro K | KFst K | \\
+		& & & KLeft K | KRight K | KCase Env N E N E K \\
+		
+		Value & V & ::= & P<VCell> \\
+		VCell & & ::= & Clos Env N E | VProd V V | VLeft V | VRight V \\
+		
+		Environment & Env & ::= & (N, V)\dots \\
+		State & & ::= & Step Expr Env K | Apply K V \\
+	\end{tabular}
+	\caption{Definitions for the CEK Machine}
+	\end{figure}
 	\begin{mdframed}
-	\texttt{Name = N = A set of distinct names}
-		
-	\texttt{Expr = E := N | Left E | Right E | Case E N E N E | Prod E E | Zro E | Fst E}
-
-	\texttt{| Lam N E | Let N E E | App E E}
-
-	The source language
-	\end{mdframed}
-	\begin{mdframed}
-		Heap = H = an abstract key value store
-		
-		Pointer<X> = P<X> = key into heap of value type X
-		
-		Alloc: (X, H) -> (Pointer<X>, H)
-		Lookup: (Pointer<X>, H) -> X
-		
-		Reshape it to be how we want
-		
-		Continuation = K := P<KCell>
-		
-		KCell := Stop | KLeft K | KRight K | KCase Env N E N E K | KProd0 Env E K | KProd1 V K | KZro K | KFst K | KLet N Env E K | KApp0 Env E K | KApp1 V K
-	
-		Value = V = P<VCell>
-		
-		VCell := VLeft V | VRight V | VProd V V | Clos Env N E
-	
-		\texttt{Environment = Env = (N, V)...}
-				
-		State = Step Expr Env K | Apply K V
-
 		Step(N, Env, K), H goto apply(K, Env(N)), H
 
 		Step(Left X, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KLeft K, H)
@@ -374,7 +379,7 @@ Below we sketch out the language and the cek machine. Note that this is the stan
 		
 		before: State = Step Expr Env K | Apply K V
 
-		after: State = Step Expr Env K T | Apply K V T
+		after: State = Step Expr Env K Tock | Apply K V Tock
 		\end{mathpar}
 	\subsection{Replay}
 	During execution, the tock needed to be converted back to a Cell. 
@@ -388,9 +393,16 @@ Below we sketch out the language and the cek machine. Note that this is the stan
 	A replay t suspend the current machine state, replacing it with the State in the Node returned from tock tree, and executing until the tock reach t. The old state is then resumed with the Cell at t.
 	Replay is recursive: a replay might issue lookup that require more replay.
 	\begin{mathpar}
-		ReplayContinuation = RK := NoReplay | RKApply V Tock RK | RKCase Tock Env N E N E K | RKZro Tock K | RKFst Tock K
+		ReplayContinuation = RK := NoReplay | RKApply V Tock RK | RKCase Tock Env N E N E K RK | RKZro Tock K RK | RKFst Tock K RK
 
 		Replay = R := (State, RK)
+		
+		RApply: ((Tock, Node), RK) -> (State, RK)
+		RApply((_, (cells, st)), NoReplay) = (st, NoReplay)
+		RApply((t, (cells, st)), RKApply v t' rk) = if t + 1 <= t' < t + 1 + len(cells) then (Apply v cells[t' - t - 1] t', rk) else (st, RKApply v t' rk)
+		RApply((t, (cells, st)), RKCase t' Env LN L RN R K RK) = if t + 1 <= t' < t + 1 + len(cells) then if cells[t' - t - 1] = VLeft X then ((Step L Env[LN := X] K, t'), rk) else if cells[t' - t - 1] = VRight Y then (Step R Env[RN := Y] K t', rk) else (st, RKCase t' Env LN L RN R K)
+		RApply((t, (cells, st)), RKZro t' K) = if t + 1 <= t' < t + 1 + len(cells) then if cells[t' - t - 1] = VProd X Y then (Apply X K t', RK) else (st, RKZro t' K)
+		RApply((t, (cells, st)), RKFst t' K) = if t + 1 <= t' < t + 1 + len(cells) then if cells[t' - t - 1] = VProd X Y then (Apply Y K t', RK) else (st, RKFst t' K)
 	\end{mathpar}
 	
 	\begin{mathpar}
@@ -400,7 +412,7 @@ Below we sketch out the language and the cek machine. Note that this is the stan
 
 		FromTock(tt, t) = 
 		  let (Node cells state, nt) = query(tt, t) in
-		  if t < nt + 1 + len(cells) then cells[t - nt - 1] else state
+		  if nt + 1 <= t < nt + 1 + len(cells) then cells[t - nt - 1] else state
 
 		goto: (Replay, TockTree) -> (Replay, TockTree)
 		State = Step Expr Env K | Apply K V
