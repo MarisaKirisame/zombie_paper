@@ -238,6 +238,9 @@ Allocated during the transition
 Map from tock to Cell | Context
 
 \section{Core Language}	
+Section: CEK Machine: pointers, lookup, allocate substeps (2.5-3pg long)
+Figure: draw on whiteboard, take screenshot.
+
 Zombie works on a untyped, purely functional, call by value language. Program in the language is then executed by the CEK abstract machine.
 
 We had deliberately chosen to represent our semantic by the CEK machine, as it have two crucial property:
@@ -248,12 +251,8 @@ We had deliberately chosen to represent our semantic by the CEK machine, as it h
 	\item Each step take a small, bounded amount of work, and especially for lookup/alloc.
 \end{enumerate}
 
-\begin{enumerate}
-	\item Note how our implementation is different from a CEK Machine: In particular, we had made pointer and pointer lookup explicit, as we later have to abstract over and reason over them. 
-\end{enumerate}
-
-Section: CEK Machine: pointers, lookup, allocate substeps (2.5-3pg long)
-Figure: draw on whiteboard, take screenshot.
+Note how our implementation is different from a CEK Machine: In particular, we had made pointers and pointer lookup explicit, as we later have to abstract over and reason over them. 
+Similarly, allocation is now explicit as well.
 	
 Below we sketch out the language and the cek machine. Note that this is the standard semantic - there is neither uncomputation nor replaying present. Uncomputation will be represented independently afterward.
 
@@ -316,7 +315,7 @@ Below we sketch out the language and the cek machine. Note that this is the stan
 	\caption{Definitions for the CEK Machine}
 \end{figure}
 
-	\begin{mdframed}
+	\begin{figure}
 		\[
 		\inferrule{ }{\text{State}, \text{Heap} \leadsto \text{State}, \text{Heap}}
 		\]
@@ -350,6 +349,9 @@ Below we sketch out the language and the cek machine. Note that this is the stan
 		\[
 		\inferrule{\text{Alloc}(\text{Clos}\ \text{Env}(\text{fv})\dots \text{N}\ \text{E}, \text{H}) = (\text{P}, \text{H'})}{\text{Step}(\text{Lam}\ \text{N}\ \text{E}, \text{Env}, \text{K}), \text{H} \leadsto \text{Apply}(\text{K}, \text{P}), \text{H'}}
 		\]
+		\caption{Abstract Machine Transition: Step}
+		\end{figure}
+		\begin{figure}
 		\[
 		\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KLeft}\ \text{K} \\ \text{Alloc}(\text{VLeft}\ \text{V}, \text{H}) = (\text{P}, \text{H'})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Apply}(\text{K}, \text{P}), \text{H'}}
 		\]
@@ -383,7 +385,8 @@ Below we sketch out the language and the cek machine. Note that this is the stan
 		\[
 		\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KApp1}\ \text{F}\ \text{K} \\ \text{Lookup}(\text{F}, \text{H}) = (\text{Clos}\ \text{Env}\ \text{N}\ \text{E}, \text{H})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Step}(\text{E}, \text{Env}(\text{N} := \text{V}), \text{K}), \text{H'}}		
 		\]
-	\end{mdframed}
+	\caption{Abstract Machine Transition: Apply}
+	\end{figure}
 	\section{Uncomputing and Recomputing}
 	\subsection{Tock}
 	Number every step and introduce tock, sitting between memory and program execution
