@@ -124,7 +124,7 @@
 	%% Of note is the shared affiliation of the first two authors, and the
 	%% "authornote" and "authornotemark" commands
 	%% used to denote shared contribution to the research.
-	\author{Maisa Kirisame}
+	\author{Marisa Kirisame}
 	\email{marisa@cs.utah.edu}
 	\orcid{1234-5678-9012}
 	\authornotemark[1]
@@ -166,7 +166,7 @@
 		Uncomputation work by turning computed values back into thunk, and upon re-requesting the thunk, computing and storing them back.
 		A naive implementation of uncomputation will face multiple problems. Among them, the most crucial and the most challenging one is that of breadcrumb. After a value is uncomputed, it's memory can be released but some memory, breadcrumb, is needed, so we can recompute the value back.
 		Ironically, in a applicative language, due to boxing all values are small. This mean uncomputation, implemented naively, will only consume more memory, defeating the purpose.
-		We present a runtime system, implemented as a library, that is absolved of the above breadcrumb problem, seemingly storing recompute information in 0-bits and violating information theory.
+		We present a runtime system, implemented as a library, that is absolved of the above breadcrumb problem.
 	\end{abstract}
 	
 	%%
@@ -231,139 +231,15 @@ Double O(1)
 
 Quality
 
-
 Another kind of thing in tock tree.
-
-Transition from X -> Y
 
 Allocated during the transition
 
 Map from tock to Cell | Context
 
 	\input{core}
-	\section{Tock}
-	
-	Number every step and introduce tock, sitting between memory and program execution
-	instead of referring to point in space, refer to point in time.
-
-	Turn pointers of space to pointers of path
-	
-	\todo{introduce an allocate step. allocation or normal transition advance the tock and get assigned a numbering}
-	
-	The critical insight of zombie is that multiple abstract machine state compute the same value. To be more precise, if a machine state x step to a machine state y, x must have computed all value that y might compute, and possibly more. This indicate that we do not have to store all previous machine state - some might be dropped in favor of older ones.
-	
-	For this purpose, we introduced a global, logical time of 64 bit int, a tock. Tock start at 0, and increase by 1 on each transition(step/apply) in the abstract machine, and whenever a value is constructed. Conversely, all tock smaller then the current tock correspond to either a value, or a executed machine state, and vice versa.
-	
-	More importantly, given a value that correspond to tock X, any machine state with tock Y < X will recompute it. The largest Y under the constraint will do the least amount of transition computing said value.
-
-	To pair a value with it's tock concretely(I mean in the runtime, the word look bad), and to allow a value to be recomputed, we abstract over the memory space(need better words), replacing pointers to value, to tocks instead. The actual values are stored on a global data structure, the tock tree. Reading from a pointer is replaced from querying the tock tree with the tock. The tock tree additionally store machine state as they are executed, so a value might be uncomputed and recomputed in the future with any earlier machine state.
-	
-	The tock tree is a binary search tree with the crucial property that lookup returns the largest node with key <= the input. This allow us to drop any node in the tock tree, with the exception of the leftmost node. Each node on the tock tree, at point t, correspond to an execution of a transition, that started at tock t, and contain:
-	\begin{enumerate}
-		\item An array of cell(actual value), created during the transition, of corresponding tock t+1, t+2...
-		\item The state it transit to.
-	\end{enumerate} 
-	Note that it store the transit-to state, but not the transit-from state, for that state is useless.
-
-	Uncomputing is then merely deleting a non-leftmost value from the tock tree.
-
-	Formally speaking, 
-	\begin{mathpar}
-		before: Value = P<VCell>
-		
-		after: Value = Tock
-		
-		TockTree: ???
-		
-		query: (TockTree, Tock) -> (Tock, Node)
-		
-		insert: (TockTree, Node) -> TockTree
-		
-		Node = ([KCell | VCell], State)
-		
-		before: State = Step Expr Env K | Apply K V
-
-		after: State = Step Expr Env K Tock | Apply K V Tock
-		\end{mathpar}
-	\section{CEKR Machine}
-	During execution, the tock needed to be converted back to a Cell. 
-	It proceed as follow:
-	\begin{enumerate}
-		\item to convert tock t to a Cell:
-		\item query the tock tree on t to get a Node
-		\item if the cell is in the array, return said Cell
-		\item otherwise, issue a replay to t.
-	\end{enumerate}
-	A replay t suspend the current machine state, replacing it with the State in the Node returned from tock tree, and executing until the tock reach t. The old state is then resumed with the Cell at t.
-	Replay is recursive: a replay might issue lookup that require more replay.
-	\begin{mathpar}
-		ReplayContinuation = RK := NoReplay | RKApply V Tock RK | RKCase Tock Env N E N E K RK | RKZro Tock K RK | RKFst Tock K RK
-
-		Replay = R := (State, RK)
-		
-		RApply: ((Tock, Node), RK) -> (State, RK)
-		RApply((_, (cells, st)), NoReplay) = (st, NoReplay)
-		RApply((t, (cells, st)), RKApply v t' rk) = if t + 1 <= t' < t + 1 + len(cells) then (Apply v cells[t' - t - 1] t', rk) else (st, RKApply v t' rk)
-		RApply((t, (cells, st)), RKCase t' Env LN L RN R K RK) = if t + 1 <= t' < t + 1 + len(cells) then if cells[t' - t - 1] = VLeft X then ((Step L Env[LN := X] K, t'), rk) else if cells[t' - t - 1] = VRight Y then (Step R Env[RN := Y] K t', rk) else (st, RKCase t' Env LN L RN R K)
-		RApply((t, (cells, st)), RKZro t' K) = if t + 1 <= t' < t + 1 + len(cells) then if cells[t' - t - 1] = VProd X Y then (Apply X K t', RK) else (st, RKZro t' K)
-		RApply((t, (cells, st)), RKFst t' K) = if t + 1 <= t' < t + 1 + len(cells) then if cells[t' - t - 1] = VProd X Y then (Apply Y K t', RK) else (st, RKFst t' K)
-	\end{mathpar}
-	
-	\begin{mathpar}
-		FromTock: (TockTree, Tock) -> VCell | KCell | State
-		From The tock tree, try to get the corresponding cell.
-		If the cell is uncomputed, return the closest state that can recompute it.
-
-		FromTock(tt, t) = 
-		  let (Node cells state, nt) = query(tt, t) in
-		  if nt + 1 <= t < nt + 1 + len(cells) then cells[t - nt - 1] else state
-
-		goto: (Replay, TockTree) -> (Replay, TockTree)
-		State = Step Expr Env K | Apply K V
-		
-		Step(N, Env, K), H goto apply(K, Env(N)), H
-		
-		Step(Left X, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KLeft K, H)
-		
-		Step(Right X, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KRight K, H)
-		
-		Step(Case X LN L RN R, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KCase LN L RN R Env, H)
-		
-		Step(Prod L R, Env, K), H goto Step(L, Env, P), H' where (P, H') = Alloc(KProd0 K R, H)
-		
-		Step(Zro X, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KZro K, H)
-		
-		Step(Fst X, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KFst K, H)
-		
-		Step(Let A = B in C, Env, K), H goto Step(B, Env, P), H' where (P, H') = Alloc(KLet A K C Env, H)
-		
-		Step(App f x, Env, K), H goto Step(f, P), H' where (P, H') = Alloc(KApp0 K x, H)
-		
-		Step(Lam N E, Env, K), H goto Apply(K, P), H' where (P, H') = Alloc(Clos Env(fv)... N E, H)
-		
-		Apply(P, V) = apply(Lookup(P), V)
-		apply(KLeft K, V), H goto Apply(K, P), H' where (P, H') = Alloc(VLeft V, H)
-		
-		apply(KRight K, V), H goto Apply(K, P), H' where (P, H') = Alloc(VRight V, H)
-		
-		apply(KCase Env LN L RN R K, V), H goto 
-		if LookUp(V, H) = VLeft V then Step(L, Env(LN := V), K)
-		= VRight V then Step(R, Env(RN := V), K)
-		
-		apply(KProd0 Env R K, V), H goto Step(R, Env, P), H' where (P, H') = Alloc(KProd1 V Env K, H)
-		
-		apply(KProd1 L K, V), H goto Apply(P, K), H' where (P, H') = Alloc(VProd L V, H)
-		
-		apply(KZro K, V), H goto Apply(X, K), H where VProd X Y = LookUp(V, H)
-		
-		apply(KFst K, V), H goto Apply(Y, K), H where VProd X Y = LookUp(V, H)
-		
-		apply(KLet A Env C K, B), H goto Step(C, Env(A := B), K), H
-		
-		apply(KApp0 Env X K, V) goto Step(X, Env, P) where (P, H'), H' = Alloc(KApp1 V K, H)
-		
-		apply(KApp1 F K, V), H goto Step(E, Env(N := V), K), H where (Clos Env N E) = LookUp(V, H)
-	\end{mathpar}
+	\input{un}
+	\input{cekr}
 	\section{Implementation}
 	\subsection{Tock Tree}
 	To exploit the temporal/spatial locality, and the 20-80 law of data access (cite?), the tock tree is implemented as a slight modification of a splay tree.

@@ -1,0 +1,79 @@
+	\section{CEKR Machine}
+During execution, the tock needed to be converted back to a Cell. 
+It proceed as follow:
+\begin{enumerate}
+	\item to convert tock t to a Cell:
+	\item query the tock tree on t to get a Node
+	\item if the cell is in the array, return said Cell
+	\item otherwise, issue a replay to t.
+\end{enumerate}
+A replay t suspend the current machine state, replacing it with the State in the Node returned from tock tree, and executing until the tock reach t. The old state is then resumed with the Cell at t.
+Replay is recursive: a replay might issue lookup that require more replay.
+\begin{mathpar}
+	ReplayContinuation = RK := NoReplay | RKApply V Tock RK | RKCase Tock Env N E N E K RK | RKZro Tock K RK | RKFst Tock K RK
+	
+	Replay = R := (State, RK)
+	
+	RApply: ((Tock, Node), RK) -> (State, RK)
+	RApply((_, (cells, st)), NoReplay) = (st, NoReplay)
+	RApply((t, (cells, st)), RKApply v t' rk) = if t + 1 <= t' < t + 1 + len(cells) then (Apply v cells[t' - t - 1] t', rk) else (st, RKApply v t' rk)
+	RApply((t, (cells, st)), RKCase t' Env LN L RN R K RK) = if t + 1 <= t' < t + 1 + len(cells) then if cells[t' - t - 1] = VLeft X then ((Step L Env[LN := X] K, t'), rk) else if cells[t' - t - 1] = VRight Y then (Step R Env[RN := Y] K t', rk) else (st, RKCase t' Env LN L RN R K)
+	RApply((t, (cells, st)), RKZro t' K) = if t + 1 <= t' < t + 1 + len(cells) then if cells[t' - t - 1] = VProd X Y then (Apply X K t', RK) else (st, RKZro t' K)
+	RApply((t, (cells, st)), RKFst t' K) = if t + 1 <= t' < t + 1 + len(cells) then if cells[t' - t - 1] = VProd X Y then (Apply Y K t', RK) else (st, RKFst t' K)
+\end{mathpar}
+
+\begin{mathpar}
+	FromTock: (TockTree, Tock) -> VCell | KCell | State
+	From The tock tree, try to get the corresponding cell.
+	If the cell is uncomputed, return the closest state that can recompute it.
+	
+	FromTock(tt, t) = 
+	let (Node cells state, nt) = query(tt, t) in
+	if nt + 1 <= t < nt + 1 + len(cells) then cells[t - nt - 1] else state
+	
+	goto: (Replay, TockTree) -> (Replay, TockTree)
+	State = Step Expr Env K | Apply K V
+	
+	Step(N, Env, K), H goto apply(K, Env(N)), H
+	
+	Step(Left X, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KLeft K, H)
+	
+	Step(Right X, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KRight K, H)
+	
+	Step(Case X LN L RN R, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KCase LN L RN R Env, H)
+	
+	Step(Prod L R, Env, K), H goto Step(L, Env, P), H' where (P, H') = Alloc(KProd0 K R, H)
+	
+	Step(Zro X, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KZro K, H)
+	
+	Step(Fst X, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KFst K, H)
+	
+	Step(Let A = B in C, Env, K), H goto Step(B, Env, P), H' where (P, H') = Alloc(KLet A K C Env, H)
+	
+	Step(App f x, Env, K), H goto Step(f, P), H' where (P, H') = Alloc(KApp0 K x, H)
+	
+	Step(Lam N E, Env, K), H goto Apply(K, P), H' where (P, H') = Alloc(Clos Env(fv)... N E, H)
+	
+	Apply(P, V) = apply(Lookup(P), V)
+	apply(KLeft K, V), H goto Apply(K, P), H' where (P, H') = Alloc(VLeft V, H)
+	
+	apply(KRight K, V), H goto Apply(K, P), H' where (P, H') = Alloc(VRight V, H)
+	
+	apply(KCase Env LN L RN R K, V), H goto 
+	if LookUp(V, H) = VLeft V then Step(L, Env(LN := V), K)
+	= VRight V then Step(R, Env(RN := V), K)
+	
+	apply(KProd0 Env R K, V), H goto Step(R, Env, P), H' where (P, H') = Alloc(KProd1 V Env K, H)
+	
+	apply(KProd1 L K, V), H goto Apply(P, K), H' where (P, H') = Alloc(VProd L V, H)
+	
+	apply(KZro K, V), H goto Apply(X, K), H where VProd X Y = LookUp(V, H)
+	
+	apply(KFst K, V), H goto Apply(Y, K), H where VProd X Y = LookUp(V, H)
+	
+	apply(KLet A Env C K, B), H goto Step(C, Env(A := B), K), H
+	
+	apply(KApp0 Env X K, V) goto Step(X, Env, P) where (P, H'), H' = Alloc(KApp1 V K, H)
+	
+	apply(KApp1 F K, V), H goto Step(E, Env(N := V), K), H where (Clos Env N E) = LookUp(V, H)
+\end{mathpar}
