@@ -1,18 +1,33 @@
-	\section{CEKR Machine}
-During execution, the tock needed to be converted back to a Cell. 
-It proceed as follow:
-\begin{enumerate}
-	\item to convert tock t to a Cell:
-	\item query the tock tree on t to get a Node
-	\item if the cell is in the array, return said Cell
-	\item otherwise, issue a replay to t.
-\end{enumerate}
-A replay t suspend the current machine state, replacing it with the State in the Node returned from tock tree, and executing until the tock reach t. The old state is then resumed with the Cell at t.
-Replay is recursive: a replay might issue lookup that require more replay.
+\section{CEKR Machine}
+In this section we formalize the semantic of the language with uncomputation and recomputation. It is implemented by adding a Replay Continuation alongside the CEK Machine.
+Hence we call it the CEKR Machine.
+
+\subsection{Tock Tree}
+\begin{figure}
+	\begin{tabular}{p{6em} p{2.6em} p{7em} p{1em} p{0.45\textwidth}}
+	before & $:$ & Value & = & P<VCell> \\
+	after & $:$ & Value & = & Tock \\
+	before & $:$ & Continuation & = & P<KCell> \\
+	after & $:$ & Continuation & = & Tock \\
+	before & $:$ & State & ::= & $\Step~E~\Env~K \mid \Apply~K~V $ \\
+	after & $:$ & State & ::= & $\Step~E~\Env~K~Tock \mid \Apply~K~V~Tock $ \\
+	Node & & & = & ([KCell | VCell], State) \\
+	query & $:$ & (TockTree, Tock) & -> & (Tock, Node) \\
+	insert & $:$ & (TockTree, Node) & -> & TockTree \\
+	\end{tabular}
+	\caption{Tock Tree API. Note that we deliberately avoid dictating what node get uncomputed, in order to decouple uncomputation/recomputation with selecting what to uncompute. Instead, node might be dropped during insertion into TockTree. One might e.g. set a limit onto the amount of nodes in the Tock Tree. }
+\end{figure}
+
+\subsection{Replay Continuation}
+	\begin{tabular}{p{10em} p{2.6em} p{1em} p{0.45\textwidth}}
+	ReplayContinuation & RK & ::= & NoReplay | RKApply V Tock RK | \\
+	& & & RKCase Tock Env N E N E K RK | \\
+	& & & RKZro Tock K RK | RKFst Tock K RK \\
+	Replay & R & ::= & (State, RK) \\
+\end{tabular}
 \begin{mathpar}
-	ReplayContinuation = RK := NoReplay | RKApply V Tock RK | RKCase Tock Env N E N E K RK | RKZro Tock K RK | RKFst Tock K RK
 	
-	Replay = R := (State, RK)
+
 	
 	RApply: ((Tock, Node), RK) -> (State, RK)
 	RApply((_, (cells, st)), NoReplay) = (st, NoReplay)
@@ -53,7 +68,8 @@ Replay is recursive: a replay might issue lookup that require more replay.
 	Step(App f x, Env, K), H goto Step(f, P), H' where (P, H') = Alloc(KApp0 K x, H)
 	
 	Step(Lam N E, Env, K), H goto Apply(K, P), H' where (P, H') = Alloc(Clos Env(fv)... N E, H)
-	
+\end{mathpar}
+\begin{mathpar}
 	Apply(P, V) = apply(Lookup(P), V)
 	apply(KLeft K, V), H goto Apply(K, P), H' where (P, H') = Alloc(VLeft V, H)
 	

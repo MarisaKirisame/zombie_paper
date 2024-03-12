@@ -28,7 +28,14 @@ We had deliberately chosen to represent our semantic by the CEK machine, as it h
 	
 	\item Each step take a small, bounded amount of work, and especially for lookup/alloc.
 \end{enumerate}
-
+\begin{figure}
+\includegraphics[width=0.5\columnwidth]{0}
+\caption{the deterministic, linear nature of the CEK machine}
+\end{figure}
+\begin{figure}
+	\includegraphics[width=0.5\columnwidth]{1}
+	\caption{the machine does a small constant amount of pointer lookup}
+\end{figure}
 Note how our implementation is different from a CEK Machine: In particular, we had made pointers and pointer lookup explicit, as we later have to abstract over and reason over them. 
 Similarly, allocation is now explicit as well.
 
