@@ -87,81 +87,42 @@ Below we sketch out the language and the cek machine. Note that this is the stan
 		\VLeft~V \mid
 		\VRight~V $ \\
 		
-		Environment & $\Env$ & ::= & $[(N, V)]$ \\
-		State & & ::= & $\Step~{\text{Expr}}~\Env~K \mid \Apply~K~V $ \\
+		Environment & $\Env$ & ::= & $(N, V) \dots$ \\
+		State & & ::= & $\Step~E~\Env~K \mid \Apply~K~V $ \\
 	\end{tabular}
 	\caption{Definitions for the CEK Machine}
 \end{figure}
 
 \begin{figure}
-	\[
-	\inferrule{ }{\text{State}, \text{Heap} \leadsto \text{State}, \text{Heap}}
-	\]
-	\[
-	\inferrule{ }{\text{Step}(\text{N}, \text{Env}, \text{K}), \text{H} \leadsto \text{Apply}(\text{K}, \text{Env}(\text{N})), \text{H}}
-	\]
-	\[
-	\inferrule{\text{Alloc}(\text{KLeft}\ \text{K}, \text{H}) = (\text{P}, \text{H'})}{\text{Step}(\text{Left}\ \text{X}, \text{Env}, \text{K}), \text{H} \leadsto \text{Step}(\text{X}, \text{Env}, \text{P}), \text{H'}}
-	\]
-	\[
-	\inferrule{\text{Alloc}(\text{KRight}\ \text{K}, \text{H}) = (\text{P}, \text{H'})}{\text{Step}(\text{Right}\ \text{X}, \text{Env}, \text{K}), \text{H} \leadsto \text{Step}(\text{X}, \text{Env}, \text{P}), \text{H'}}
-	\]
-	\[
-	\inferrule{\text{Alloc}(\text{KProd0}\ \text{K}\ \text{R}, \text{H}) = (\text{P}, \text{H'})}{\text{Step}(\text{Prod}\ \text{L}\ \text{R}, \text{Env}, \text{K}), \text{H} \leadsto \text{Step}(\text{L}, \text{Env}, \text{P}), \text{H'}}
-	\]
-	\[
-	\inferrule{\text{Alloc}(\text{KZro}\ \text{K}, \text{H}) = (\text{P}, \text{H'})}{\text{Step}(\text{Zro}\ \text{X}, \text{Env}, \text{K}), \text{H} \leadsto \text{Step}(\text{X}, \text{Env}, \text{P}), \text{H'}}
-	\]
-	\[
-	\inferrule{\text{Alloc}(\text{KFst}\ \text{K}, \text{H}) = (\text{P}, \text{H'})}{\text{Step}(\text{Fst}\ \text{X}, \text{Env}, \text{K}), \text{H} \leadsto \text{Step}(\text{X}, \text{Env}, \text{P}), \text{H'}}
-	\]
-	\[
-	\inferrule{\text{Alloc}(\text{KCase}\ \text{LN}\ \text{L}\ \text{RN}\ \text{R}\ \text{Env}, \text{H}) = (\text{P}, \text{H'})}{\text{Step}(\text{Case}\ \text{X}\ \text{LN}\ \text{L}\ \text{RN}\ \text{R}, \text{Env}, \text{K}), \text{H} \leadsto \text{Step}(\text{X}, \text{Env}, \text{P}), \text{H'}}
-	\]
-	\[
-	\inferrule{\text{Alloc}(\text{KLet}\ \text{A}\ \text{K}\ \text{C}\ \text{Env}, \text{H}) = (\text{P}, \text{H'})}{\text{Step}(\text{Let}\ \text{A}\ \text{B}\ \text{C}, \text{Env}, \text{K}), \text{H} \leadsto \text{Step}(\text{B}, \text{Env}, \text{P}), \text{H'}}
-	\]
-	\[
-	\inferrule{\text{Alloc}(\text{KApp0}\ \text{K}\ \text{X}, \text{H}) = (\text{P}, \text{H'})}{\text{Step}(\text{App}\ \text{F}\ \text{X}, \text{Env}, \text{K}), \text{H} \leadsto \text{Step}(\text{F}, \text{P}), \text{H'}}
-	\]
-	\[
-	\inferrule{\text{Alloc}(\text{Clos}\ \text{Env}(\text{fv})\dots \text{N}\ \text{E}, \text{H}) = (\text{P}, \text{H'})}{\text{Step}(\text{Lam}\ \text{N}\ \text{E}, \text{Env}, \text{K}), \text{H} \leadsto \text{Apply}(\text{K}, \text{P}), \text{H'}}
-	\]
+	\begin{mathpar}
+		\inferrule{ }{\text{State}, H \leadsto \text{State}, H} \and
+		\inferrule{ }{\Step(N, \Env, K), H \leadsto \Apply(K, \Env(N)), H} \and
+		\inferrule{\Alloc(\KLeft~K, H) = (P, H')}{\Step(\sLeft~X, \Env, K), H \leadsto \Step(X, \Env, P), H'} \and
+		\inferrule{\Alloc(\KRight~K, H) = (P, H')}{\Step(\sRight~X, \Env, K), H \leadsto \Step(X, \Env, P), H'} \and
+		\inferrule{\Alloc(\KProd_0~K~R, H) = (P, H')}{\Step(\sProd~L~R, \Env, K), H \leadsto \Step(L, \Env, P), H'} \and
+		\inferrule{\Alloc(\KZro~K, H) = (P, H')}{\Step(\sZro~X, \Env, K), H \leadsto \Step(X, \Env, P), H'} \and
+		\inferrule{\Alloc(\KFst~K, H) = (P, H')}{\Step(\sFst~X, \Env, K), H \leadsto \Step(X, \Env, P), H'} \and
+		\inferrule{\Alloc(\KCase~\mathit{LN}~L~\mathit{RN}~R~\Env, H) = (P, H')}{\Step(\sCase~X~\mathit{LN}~L~\mathit{RN}~R, \Env, K), H \leadsto \Step(X, \Env, P), H'} \and
+		\inferrule{\Alloc(\KLet~A~K~C~\Env, H) = (P, H')}{\Step(\sLet~A~B~C, \Env, K), H \leadsto \Step(B, \Env, P), H'} \and
+		\inferrule{\Alloc(\KApp_0~K~X, H) = (P, H')}{\Step(\sApp~F~X, \Env, K), H \leadsto \Step(F, P), H'} \and
+		\inferrule{\Alloc(\Clos~\Env(\text{fv})\cdots N~E, H) = (P, H')}{\Step(\sLam~N~E, \Env, K), H \leadsto \Apply(K, P), H'}
+	\end{mathpar}
 	\caption{Abstract Machine Transition: Step}
 \end{figure}
+
 \begin{figure}
-	\[
-	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KLeft}\ \text{K} \\ \text{Alloc}(\text{VLeft}\ \text{V}, \text{H}) = (\text{P'}, \text{H'})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Apply}(\text{K}, \text{P'}), \text{H'}}
-	\]
-	\[
-	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KRight}\ \text{K} \\ \text{Alloc}(\text{VRight}\ \text{V}, \text{H}) = (\text{P'}, \text{H'})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Apply}(\text{K}, \text{P'}), \text{H'}}
-	\]
-	\[
-	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KCase}\ \text{Env}\ \text{LN}\ \text{L}\ \text{RN}\ \text{R}\ \text{K} \\ \text{Lookup}(\text{V}, \text{H}) = \text{VLeft}\ \text{V}}{\text{Apply}(\text{P}, \text{V}) \leadsto \text{Step}(\text{L}, \text{Env}(\text{LN} := \text{V}), \text{K})}
-	\]
-	\[
-	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KCase}\ \text{Env}\ \text{LN}\ \text{L}\ \text{RN}\ \text{R}\ \text{K} \\ \text{Lookup}(\text{V}, \text{H}) = \text{VRight}\ \text{V}}{\text{Apply}(\text{P}, \text{V}) \leadsto \text{Step}(\text{R}, \text{Env}(\text{RN} := \text{V}), \text{K})}
-	\]
-	\[
-	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KProd0}\ \text{Env}\ \text{R}\ \text{K} \\ \text{Alloc}(\text{KProd1}\ \text{V}\ \text{Env}\ \text{K}, \text{H}) = (\text{P'}, \text{H'})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Apply}(\text{K}, \text{P'}), \text{H'}}
-	\]
-	\[
-	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KProd1}\ \text{L}\ \text{K} \\ \text{Alloc}(\text{VProd}\ \text{L}\ \text{V}, \text{H}) = (\text{P'}, \text{H'})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Apply}(\text{K}, \text{P'}), \text{H'}}
-	\]
-	\[
-	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KZro}\ \text{K} \\ \text{Lookup}(\text{V}, \text{H}) = (\text{VProd}\ \text{X}\ \text{Y})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Apply}(\text{K}, \text{X}), \text{H'}}
-	\]
-	\[
-	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KFst}\ \text{K} \\ \text{Lookup}(\text{V}, \text{H}) = (\text{VProd}\ \text{X}\ \text{Y})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Apply}(\text{K}, \text{Y}), \text{H'}}
-	\]
-	\[
-	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KLet}\ \text{A}\ \text{Env}\ \text{C}\ \text{K}}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Step}(\text{C}, \text{Env}(\text{A} := \text{V}), \text{K}), \text{H'}}
-	\]
-	\[
-	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KApp0}\ \text{Env}\ \text{X}\ \text{K} \\ \text{Alloc}(\text{KApp1}\ \text{V}\ \text{K}, \text{H}) = (\text{P'}, \text{H'})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Step}(\text{X}, \text{Env}, \text{P'}), \text{H'}}
-	\]
-	\[
-	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KApp1}\ \text{F}\ \text{K} \\ \text{Lookup}(\text{F}, \text{H}) = (\text{Clos}\ \text{Env}\ \text{N}\ \text{E}, \text{H})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Step}(\text{E}, \text{Env}(\text{N} := \text{V}), \text{K}), \text{H'}}		
-	\]
+	\begin{mathpar}
+		\inferrule{\Lookup(P, H) = \KLeft~K \and \Alloc(\VLeft~V, H) = (P', H')}{\Apply(P, V), H \leadsto \Apply(K, P'), H'} \and
+		\inferrule{\Lookup(P, H) = \KRight~K \and \Alloc(\VRight~V, H) = (P', H')}{\Apply(P, V), H \leadsto \Apply(K, P'), H'} \and
+		\inferrule{\Lookup(P, H) = \KCase~\Env~\mathit{LN}~L~\mathit{RN}~R~K \and \Lookup(V, H) = \VLeft~V}{\Apply(P, V) \leadsto \Step(L, \Env(\mathit{LN} := V), K)} \and
+		\inferrule{\Lookup(P, H) = \KCase~\Env~\mathit{LN}~L~\mathit{RN}~R~K \and \Lookup(V, H) = \VRight~V}{\Apply(P, V) \leadsto \Step(R, \Env(\mathit{RN} := V), K)} \and
+		\inferrule{\Lookup(P, H) = \text{KProd0}~\Env~R~K \and \Alloc(\KProd_1~V~\Env~K, H) = (P', H')}{\Apply(P, V), H \leadsto \Apply(K, P'), H'} \and
+		\inferrule{\Lookup(P, H) = \KProd_1~L~K \and \Alloc(\VProd~L~V, H) = (P, H')}{\Apply(P', V), H \leadsto \Apply(K, P'), H'} \and
+		\inferrule{\Lookup(P, H) = \KZro~K \and \Lookup(V, H) = (\VProd~X~Y)}{\Apply(P, V), H \leadsto \Apply(K, X), H'} \and
+		\inferrule{\Lookup(P, H) = \KFst~K \and \Lookup(V, H) = (\VProd~X~Y)}{\Apply(P, V), H \leadsto \Apply(K, Y), H'} \and
+		\inferrule{\Lookup(P, H) = \KLet~A~\Env~C~K}{\Apply(P, V), H \leadsto \Step(C, \Env(A := V), K), H'} \and
+		\inferrule{\Lookup(P, H) = \KApp_0~\Env~X~K \and \Alloc(\KApp_1~V~K, H) = (P', H')}{\Apply(P, V), H \leadsto \Step(X, \Env, P'), H'} \and
+		\inferrule{\Lookup(P, H) = \KApp_1~F~K \and \Lookup(F, H) = (\Clos~\Env~N~E, H)}{\Apply(P, V), H \leadsto \Step(E, \Env(N := V), K), H'}
+	\end{mathpar}
 	\caption{Abstract Machine Transition: Apply}
 \end{figure}
