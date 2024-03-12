@@ -1,9 +1,29 @@
 \section{Core Language}	
 Zombie works on a untyped, purely functional, call by value language. Program in the language is then executed by the CEK abstract machine.
 
-We had deliberately chosen to represent our semantic by the CEK machine, as it have two crucial property:
+The CEK machine is an transition system between states. In other words, given a state, the CEK machine formalize what that state might transit into. Running a program under the CEK machine then correspond to transiting the machine until it reach a non-transitable state.
+
+A state in the CEK machine is consisted of 3 parts:
 
 \begin{enumerate}
+	\item \textcolor{blue}{C}ontrol, the expression currently being evaluated.
+	\item \textcolor{blue}{E}nvironment, a name-key map of free variable of Control.
+	\item \textcolor{blue}{K}ontinuation, which will be invoked when Control is evaluated.
+\end{enumerate}
+
+Our formalization of the CEK machine alternate between two mode.
+
+It start with the step mode, which break down a complex expression, focusing on a part of it, storing the other parts onto the continuation, until it find an atomic expression, then convert the atomic expression into a value, and call the other mode, apply.
+
+The apply mode transform the values according to the continuation, giving back control to step once there is more expression to evaluate.
+
+The machine start with a special continuation, Done, and end when Value V is being applied to the Done continuation. This denote that the original expression evaluate to value V.
+
+We had deliberately chosen to represent our semantic by the CEK machine, as it have three crucial properties:
+
+\begin{enumerate}
+	\item It is deterministic. Given any state, it can transit to at most 1 state.
+	
 	\item It is linear. An execution of a program can be characterized as a (possibly infinite) sequence the abstract machine transit through.
 	
 	\item Each step take a small, bounded amount of work, and especially for lookup/alloc.
@@ -48,7 +68,7 @@ Below we sketch out the language and the cek machine. Note that this is the stan
 		Continuation & $K$ & $::=$ & $P \langle \KCell \rangle$ \\
 		
 		KCell & & $::=$ & $
-		\Stop \mid
+		\Done \mid
 		\KLet~N~\Env~E~K \mid
 		\KApp_0~\Env~E~K \mid
 		\KApp_1~V~K \mid
@@ -67,8 +87,8 @@ Below we sketch out the language and the cek machine. Note that this is the stan
 		\VLeft~V \mid
 		\VRight~V $ \\
 		
-		Environment & $\Env$ & ::= & $(N, V) \dots$ \\
-		State & & ::= & $\Step~{\color{red}\text{Expr}}~\Env~K \mid \Apply~K~V $ \\
+		Environment & $\Env$ & ::= & $[(N, V)]$ \\
+		State & & ::= & $\Step~{\text{Expr}}~\Env~K \mid \Apply~K~V $ \\
 	\end{tabular}
 	\caption{Definitions for the CEK Machine}
 \end{figure}
@@ -111,10 +131,10 @@ Below we sketch out the language and the cek machine. Note that this is the stan
 \end{figure}
 \begin{figure}
 	\[
-	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KLeft}\ \text{K} \\ \text{Alloc}(\text{VLeft}\ \text{V}, \text{H}) = (\text{P}, \text{H'})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Apply}(\text{K}, \text{P}), \text{H'}}
+	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KLeft}\ \text{K} \\ \text{Alloc}(\text{VLeft}\ \text{V}, \text{H}) = (\text{P'}, \text{H'})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Apply}(\text{K}, \text{P'}), \text{H'}}
 	\]
 	\[
-	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KRight}\ \text{K} \\ \text{Alloc}(\text{VRight}\ \text{V}, \text{H}) = (\text{P}, \text{H'})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Apply}(\text{K}, \text{P}), \text{H'}}
+	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KRight}\ \text{K} \\ \text{Alloc}(\text{VRight}\ \text{V}, \text{H}) = (\text{P'}, \text{H'})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Apply}(\text{K}, \text{P'}), \text{H'}}
 	\]
 	\[
 	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KCase}\ \text{Env}\ \text{LN}\ \text{L}\ \text{RN}\ \text{R}\ \text{K} \\ \text{Lookup}(\text{V}, \text{H}) = \text{VLeft}\ \text{V}}{\text{Apply}(\text{P}, \text{V}) \leadsto \text{Step}(\text{L}, \text{Env}(\text{LN} := \text{V}), \text{K})}
@@ -123,10 +143,10 @@ Below we sketch out the language and the cek machine. Note that this is the stan
 	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KCase}\ \text{Env}\ \text{LN}\ \text{L}\ \text{RN}\ \text{R}\ \text{K} \\ \text{Lookup}(\text{V}, \text{H}) = \text{VRight}\ \text{V}}{\text{Apply}(\text{P}, \text{V}) \leadsto \text{Step}(\text{R}, \text{Env}(\text{RN} := \text{V}), \text{K})}
 	\]
 	\[
-	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KProd0}\ \text{Env}\ \text{R}\ \text{K} \\ \text{Alloc}(\text{KProd1}\ \text{V}\ \text{Env}\ \text{K}, \text{H}) = (\text{P}, \text{H'})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Apply}(\text{K}, \text{P}), \text{H'}}
+	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KProd0}\ \text{Env}\ \text{R}\ \text{K} \\ \text{Alloc}(\text{KProd1}\ \text{V}\ \text{Env}\ \text{K}, \text{H}) = (\text{P'}, \text{H'})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Apply}(\text{K}, \text{P'}), \text{H'}}
 	\]
 	\[
-	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KProd1}\ \text{L}\ \text{K} \\ \text{Alloc}(\text{VProd}\ \text{L}\ \text{V}, \text{H}) = (\text{P}, \text{H'})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Apply}(\text{K}, \text{P}), \text{H'}}
+	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KProd1}\ \text{L}\ \text{K} \\ \text{Alloc}(\text{VProd}\ \text{L}\ \text{V}, \text{H}) = (\text{P'}, \text{H'})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Apply}(\text{K}, \text{P'}), \text{H'}}
 	\]
 	\[
 	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KZro}\ \text{K} \\ \text{Lookup}(\text{V}, \text{H}) = (\text{VProd}\ \text{X}\ \text{Y})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Apply}(\text{K}, \text{X}), \text{H'}}
@@ -138,7 +158,7 @@ Below we sketch out the language and the cek machine. Note that this is the stan
 	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KLet}\ \text{A}\ \text{Env}\ \text{C}\ \text{K}}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Step}(\text{C}, \text{Env}(\text{A} := \text{V}), \text{K}), \text{H'}}
 	\]
 	\[
-	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KApp0}\ \text{Env}\ \text{X}\ \text{K} \\ \text{Alloc}(\text{KApp1}\ \text{V}\ \text{K}, \text{H}) = (\text{P}, \text{H'})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Step}(\text{X}, \text{Env}, \text{P}), \text{H'}}
+	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KApp0}\ \text{Env}\ \text{X}\ \text{K} \\ \text{Alloc}(\text{KApp1}\ \text{V}\ \text{K}, \text{H}) = (\text{P'}, \text{H'})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Step}(\text{X}, \text{Env}, \text{P'}), \text{H'}}
 	\]
 	\[
 	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KApp1}\ \text{F}\ \text{K} \\ \text{Lookup}(\text{F}, \text{H}) = (\text{Clos}\ \text{Env}\ \text{N}\ \text{E}, \text{H})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Step}(\text{E}, \text{Env}(\text{N} := \text{V}), \text{K}), \text{H'}}		
