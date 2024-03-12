@@ -1,0 +1,147 @@
+\section{Core Language}	
+Zombie works on a untyped, purely functional, call by value language. Program in the language is then executed by the CEK abstract machine.
+
+We had deliberately chosen to represent our semantic by the CEK machine, as it have two crucial property:
+
+\begin{enumerate}
+	\item It is linear. An execution of a program can be characterized as a (possibly infinite) sequence the abstract machine transit through.
+	
+	\item Each step take a small, bounded amount of work, and especially for lookup/alloc.
+\end{enumerate}
+
+Note how our implementation is different from a CEK Machine: In particular, we had made pointers and pointer lookup explicit, as we later have to abstract over and reason over them. 
+Similarly, allocation is now explicit as well.
+
+Below we sketch out the language and the cek machine. Note that this is the standard semantic - there is neither uncomputation nor replaying present. Uncomputation will be represented independently afterward.
+
+\newcommand{\mytableshape}{p{6em} p{2.6em} p{1em} p{0.45\textwidth}}
+\begin{figure}
+	\begin{tabular}{\mytableshape}
+		Name & $N$ & $::=$ & A set of distinct names \\
+		Expr & $E$ & $::=$ & $
+		N \mid
+		\sLet~N~E~E \mid
+		\sLam~N~E \mid
+		\sApp~E~E \mid
+		\sProd~E~E \mid
+		\sZro~E \mid
+		\sFst~E \mid
+		\sLeft~E \mid
+		\sRight~E \mid
+		\sCase~E~N~E~N~E $
+	\end{tabular}
+	\caption{The source language}
+\end{figure}
+
+\begin{figure}
+	\begin{tabular}{\mytableshape}
+		Heap & $H$ & $::=$ & An abstract key value store \\
+		Pointer$\langle X \rangle$ & $P\langle X \rangle$ & $::=$ & Key into heap with value type $X$ \\
+		Alloc & & : & $(X, H) \to (\text{Pointer}\langle X \rangle, H)$ \\
+		Lookup & & : & $(\text{Pointer}\langle X \rangle, H) \to X$ \\
+	\end{tabular}
+	\caption{Heap API}
+\end{figure}
+
+\begin{figure}
+	\begin{tabular}{\mytableshape}
+		Continuation & $K$ & $::=$ & $P \langle \KCell \rangle$ \\
+		
+		KCell & & $::=$ & $
+		\Stop \mid
+		\KLet~N~\Env~E~K \mid
+		\KApp_0~\Env~E~K \mid
+		\KApp_1~V~K \mid
+		\KProd_0~\Env~E~K \mid
+		\KProd_1~V~K \mid
+		\KZro~K \mid
+		\KFst~K \mid
+		\KLeft~K \mid
+		\KRight~K \mid
+		\KCase~\Env~N~E~N~E~K $ \\
+		
+		Value & $V$ & $::=$ & $P\langle \VCell \rangle$ \\
+		VCell & & $::=$ & $
+		\Clos~\Env~N~E \mid
+		\VProd~V~V \mid
+		\VLeft~V \mid
+		\VRight~V $ \\
+		
+		Environment & $\Env$ & ::= & $(N, V) \dots$ \\
+		State & & ::= & $\Step~{\color{red}\text{Expr}}~\Env~K \mid \Apply~K~V $ \\
+	\end{tabular}
+	\caption{Definitions for the CEK Machine}
+\end{figure}
+
+\begin{figure}
+	\[
+	\inferrule{ }{\text{State}, \text{Heap} \leadsto \text{State}, \text{Heap}}
+	\]
+	\[
+	\inferrule{ }{\text{Step}(\text{N}, \text{Env}, \text{K}), \text{H} \leadsto \text{Apply}(\text{K}, \text{Env}(\text{N})), \text{H}}
+	\]
+	\[
+	\inferrule{\text{Alloc}(\text{KLeft}\ \text{K}, \text{H}) = (\text{P}, \text{H'})}{\text{Step}(\text{Left}\ \text{X}, \text{Env}, \text{K}), \text{H} \leadsto \text{Step}(\text{X}, \text{Env}, \text{P}), \text{H'}}
+	\]
+	\[
+	\inferrule{\text{Alloc}(\text{KRight}\ \text{K}, \text{H}) = (\text{P}, \text{H'})}{\text{Step}(\text{Right}\ \text{X}, \text{Env}, \text{K}), \text{H} \leadsto \text{Step}(\text{X}, \text{Env}, \text{P}), \text{H'}}
+	\]
+	\[
+	\inferrule{\text{Alloc}(\text{KProd0}\ \text{K}\ \text{R}, \text{H}) = (\text{P}, \text{H'})}{\text{Step}(\text{Prod}\ \text{L}\ \text{R}, \text{Env}, \text{K}), \text{H} \leadsto \text{Step}(\text{L}, \text{Env}, \text{P}), \text{H'}}
+	\]
+	\[
+	\inferrule{\text{Alloc}(\text{KZro}\ \text{K}, \text{H}) = (\text{P}, \text{H'})}{\text{Step}(\text{Zro}\ \text{X}, \text{Env}, \text{K}), \text{H} \leadsto \text{Step}(\text{X}, \text{Env}, \text{P}), \text{H'}}
+	\]
+	\[
+	\inferrule{\text{Alloc}(\text{KFst}\ \text{K}, \text{H}) = (\text{P}, \text{H'})}{\text{Step}(\text{Fst}\ \text{X}, \text{Env}, \text{K}), \text{H} \leadsto \text{Step}(\text{X}, \text{Env}, \text{P}), \text{H'}}
+	\]
+	\[
+	\inferrule{\text{Alloc}(\text{KCase}\ \text{LN}\ \text{L}\ \text{RN}\ \text{R}\ \text{Env}, \text{H}) = (\text{P}, \text{H'})}{\text{Step}(\text{Case}\ \text{X}\ \text{LN}\ \text{L}\ \text{RN}\ \text{R}, \text{Env}, \text{K}), \text{H} \leadsto \text{Step}(\text{X}, \text{Env}, \text{P}), \text{H'}}
+	\]
+	\[
+	\inferrule{\text{Alloc}(\text{KLet}\ \text{A}\ \text{K}\ \text{C}\ \text{Env}, \text{H}) = (\text{P}, \text{H'})}{\text{Step}(\text{Let}\ \text{A}\ \text{B}\ \text{C}, \text{Env}, \text{K}), \text{H} \leadsto \text{Step}(\text{B}, \text{Env}, \text{P}), \text{H'}}
+	\]
+	\[
+	\inferrule{\text{Alloc}(\text{KApp0}\ \text{K}\ \text{X}, \text{H}) = (\text{P}, \text{H'})}{\text{Step}(\text{App}\ \text{F}\ \text{X}, \text{Env}, \text{K}), \text{H} \leadsto \text{Step}(\text{F}, \text{P}), \text{H'}}
+	\]
+	\[
+	\inferrule{\text{Alloc}(\text{Clos}\ \text{Env}(\text{fv})\dots \text{N}\ \text{E}, \text{H}) = (\text{P}, \text{H'})}{\text{Step}(\text{Lam}\ \text{N}\ \text{E}, \text{Env}, \text{K}), \text{H} \leadsto \text{Apply}(\text{K}, \text{P}), \text{H'}}
+	\]
+	\caption{Abstract Machine Transition: Step}
+\end{figure}
+\begin{figure}
+	\[
+	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KLeft}\ \text{K} \\ \text{Alloc}(\text{VLeft}\ \text{V}, \text{H}) = (\text{P}, \text{H'})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Apply}(\text{K}, \text{P}), \text{H'}}
+	\]
+	\[
+	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KRight}\ \text{K} \\ \text{Alloc}(\text{VRight}\ \text{V}, \text{H}) = (\text{P}, \text{H'})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Apply}(\text{K}, \text{P}), \text{H'}}
+	\]
+	\[
+	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KCase}\ \text{Env}\ \text{LN}\ \text{L}\ \text{RN}\ \text{R}\ \text{K} \\ \text{Lookup}(\text{V}, \text{H}) = \text{VLeft}\ \text{V}}{\text{Apply}(\text{P}, \text{V}) \leadsto \text{Step}(\text{L}, \text{Env}(\text{LN} := \text{V}), \text{K})}
+	\]
+	\[
+	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KCase}\ \text{Env}\ \text{LN}\ \text{L}\ \text{RN}\ \text{R}\ \text{K} \\ \text{Lookup}(\text{V}, \text{H}) = \text{VRight}\ \text{V}}{\text{Apply}(\text{P}, \text{V}) \leadsto \text{Step}(\text{R}, \text{Env}(\text{RN} := \text{V}), \text{K})}
+	\]
+	\[
+	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KProd0}\ \text{Env}\ \text{R}\ \text{K} \\ \text{Alloc}(\text{KProd1}\ \text{V}\ \text{Env}\ \text{K}, \text{H}) = (\text{P}, \text{H'})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Apply}(\text{K}, \text{P}), \text{H'}}
+	\]
+	\[
+	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KProd1}\ \text{L}\ \text{K} \\ \text{Alloc}(\text{VProd}\ \text{L}\ \text{V}, \text{H}) = (\text{P}, \text{H'})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Apply}(\text{K}, \text{P}), \text{H'}}
+	\]
+	\[
+	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KZro}\ \text{K} \\ \text{Lookup}(\text{V}, \text{H}) = (\text{VProd}\ \text{X}\ \text{Y})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Apply}(\text{K}, \text{X}), \text{H'}}
+	\]
+	\[
+	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KFst}\ \text{K} \\ \text{Lookup}(\text{V}, \text{H}) = (\text{VProd}\ \text{X}\ \text{Y})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Apply}(\text{K}, \text{Y}), \text{H'}}
+	\]
+	\[
+	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KLet}\ \text{A}\ \text{Env}\ \text{C}\ \text{K}}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Step}(\text{C}, \text{Env}(\text{A} := \text{V}), \text{K}), \text{H'}}
+	\]
+	\[
+	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KApp0}\ \text{Env}\ \text{X}\ \text{K} \\ \text{Alloc}(\text{KApp1}\ \text{V}\ \text{K}, \text{H}) = (\text{P}, \text{H'})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Step}(\text{X}, \text{Env}, \text{P}), \text{H'}}
+	\]
+	\[
+	\inferrule{\text{Lookup}(\text{P}, \text{H}) = \text{KApp1}\ \text{F}\ \text{K} \\ \text{Lookup}(\text{F}, \text{H}) = (\text{Clos}\ \text{Env}\ \text{N}\ \text{E}, \text{H})}{\text{Apply}(\text{P}, \text{V}), \text{H} \leadsto \text{Step}(\text{E}, \text{Env}(\text{N} := \text{V}), \text{K}), \text{H'}}		
+	\]
+	\caption{Abstract Machine Transition: Apply}
+\end{figure}
