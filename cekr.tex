@@ -60,26 +60,6 @@ Hence we call it the CEKR Machine.
 	
 	goto: (Replay, TockTree) -> (Replay, TockTree)
 	State = Step Expr Env K | Apply K V
-	
-	Step(N, Env, K), H goto apply(K, Env(N)), H
-	
-	Step(Left X, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KLeft K, H)
-	
-	Step(Right X, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KRight K, H)
-	
-	Step(Case X LN L RN R, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KCase LN L RN R Env, H)
-	
-	Step(Prod L R, Env, K), H goto Step(L, Env, P), H' where (P, H') = Alloc(KProd0 K R, H)
-	
-	Step(Zro X, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KZro K, H)
-	
-	Step(Fst X, Env, K), H goto Step(X, Env, P), H' where (P, H') = Alloc(KFst K, H)
-	
-	Step(Let A = B in C, Env, K), H goto Step(B, Env, P), H' where (P, H') = Alloc(KLet A K C Env, H)
-	
-	Step(App f x, Env, K), H goto Step(f, P), H' where (P, H') = Alloc(KApp0 K x, H)
-	
-	Step(Lam N E, Env, K), H goto Apply(K, P), H' where (P, H') = Alloc(Clos Env(fv)... N E, H)
 \end{mathpar}
 \begin{mathpar}
 	Apply(P, V) = apply(Lookup(P), V)
