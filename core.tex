@@ -121,8 +121,8 @@ Below we sketch out the language and the cek machine. Note that this is the stan
 	\begin{mathpar}
 		\inferrule{\Lookup(P, H) = \KLeft~K \and \Alloc(\VLeft~V, H) = (P', H')}{\Apply(P, V), H \leadsto \Apply(K, P'), H'} \and
 		\inferrule{\Lookup(P, H) = \KRight~K \and \Alloc(\VRight~V, H) = (P', H')}{\Apply(P, V), H \leadsto \Apply(K, P'), H'} \and
-		\inferrule{\Lookup(P, H) = \KCase~\Env~\mathit{LN}~L~\mathit{RN}~R~K \and \Lookup(V, H) = \VLeft~V}{\Apply(P, V) \leadsto \Eval(L, \Env(\mathit{LN} := V), K)} \and
-		\inferrule{\Lookup(P, H) = \KCase~\Env~\mathit{LN}~L~\mathit{RN}~R~K \and \Lookup(V, H) = \VRight~V}{\Apply(P, V) \leadsto \Eval(R, \Env(\mathit{RN} := V), K)} \and
+		\inferrule{\Lookup(P, H) = \KCase~\Env~\mathit{LN}~L~\mathit{RN}~R~K \and \Lookup(V, H) = \VLeft~V}{\Apply(P, V), H \leadsto \Eval(L, \Env(\mathit{LN} := V), K), H} \and
+		\inferrule{\Lookup(P, H) = \KCase~\Env~\mathit{LN}~L~\mathit{RN}~R~K \and \Lookup(V, H) = \VRight~V}{\Apply(P, V), H \leadsto \Eval(R, \Env(\mathit{RN} := V), K), H} \and
 		\inferrule{\Lookup(P, H) = \text{KProd0}~\Env~R~K \and \Alloc(\KProd_1~V~\Env~K, H) = (P', H')}{\Apply(P, V), H \leadsto \Apply(K, P'), H'} \and
 		\inferrule{\Lookup(P, H) = \KProd_1~L~K \and \Alloc(\VProd~L~V, H) = (P, H')}{\Apply(P', V), H \leadsto \Apply(K, P'), H'} \and
 		\inferrule{\Lookup(P, H) = \KZro~K \and \Lookup(V, H) = (\VProd~X~Y)}{\Apply(P, V), H \leadsto \Apply(K, X), H'} \and
