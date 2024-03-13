@@ -1,6 +1,5 @@
 \section{Uncomputing and Recomputing}
 \subsection{Tock}
-
 The key insight of Zombie is to introduce an abstraction layer between the executing program and the heap. This abstraction layer will allow the heap to transparently discard and recompute the program's intermediate values. To do so, we use the CEK machine to refer to each intermediate value by the index of the computation step that created it. Since each CEK step allocates at most one cell, this correspondence is injective. In other words, instead of storing pointers that refer to memory locations, we will store pointers, which we call ``tocks'', that refer to points in time---that is, CEK step indices.
 
 In our runtime, these ``tocks'' are implemented as 64-bit integers, though in our model we will treat them as logically unbounded integers. There is a global ``current tock'' counter, which starts at 0 and is increased by 1 at every transition step in the abstract machine and at every allocation. The cell allocated at step $i$ is then referred to by the tock $i$, and that tock can then be used as a pointer, stored in data structures, looked up by later computations steps, and the like.
@@ -15,7 +14,7 @@ Because a value can be recomputed from \emph{any} earlier CEK machine state, it 
 
 In Zombie, the heap is implemented by a runtime data structure called the tock tree. The tock tree maps tocks to the cells allocated by that step; in other words, the tock tree implements the mapping between tocks and their actual memory locations. Because values can be evicted to save memory, however, not all tocks have a mapping in the tock tree. Instead, every tock that \emph{is} present in the tock tree will also store its machine state. To recompute an evicted value at some tock $i$, the tock tree will find the largest machine state at tock $j < i$ and replay from that tock to tock $i$.
 
-Each node in the Tock Tree stores both a memory cell and a machine state. Specifically, consider the execution of the CEK machine from step $t$. In step $t + 1$ it allocates a cell; it then performs a computation in step $t + 2$. So the node at tock $t$ contains both the cell allocated at step $t + 1$ as well as the machine state \emph{afterwards}, at step $t + 2$.
+Each node in the Tock Tree stores both a memory cell and a machine state. Specifically, consider the execution of the CEK machine from step $t$. In step $t + 1$ it allocates a cell; it then performs a computation in step $t + 2$. So the node at tock $t$ contains both the cell allocated at step $t + 1$ as well as the machine state \emph{afterwards}, at step $t + 2$. A transition might not alloc any new cells, in such a case the Node only store a machine state any no memory cell. To be more specific, if the node represent the execution of the CEK machine at step $t$, it will only contain the CEK machine state at step $t + 1$.
 
 In order to make this operation efficient, the tock tree is organized as a binary search tree. In a binary search tree, arbitrary keys (tocks) can be looked up in $O(\log(n))$ time, where $n$ is the size of the tock tree, and when a key is not found, the largest key smaller than it can be easily found. Then the heap can replay execution from that point to compute the desired tock.
 
@@ -57,5 +56,4 @@ During the replaying process, more lookup might be issued, and those lookup migh
 We treat continuations also as values, and label them with tock/put them in the tock tree, just like any other values. This allow us to also uncompute continuation as well.
 
 \subsection{Eviction}
-
 This allow us to remove any non-leftmost node from the tock tree. After the removal, the query that originally return the removed node, will return the node slightly earlier then that, which we can then replay to regenerate the removed node. In fact, this is the implementation of uncomputation in our system, and any non-leftmost node can be removed, to save memory at any given time.

@@ -9,8 +9,8 @@ Hence we call it the CEKR Machine.
 	after & $:$ & Value & = & Tock \\
 	before & $:$ & Continuation & = & P<KCell> \\
 	after & $:$ & Continuation & = & Tock \\
-	before & $:$ & State & ::= & $\Step~E~\Env~K \mid \Apply~K~V $ \\
-	after & $:$ & State & ::= & $\Step~E~\Env~K~Tock \mid \Apply~K~V~Tock $ \\
+	before & $:$ & State & ::= & $\Eval~E~\Env~K \mid \Apply~K~V $ \\
+	after & $:$ & State & ::= & $\Eval~E~\Env~K~Tock \mid \Apply~K~V~Tock $ \\
 	Node & & & = & ([KCell | VCell], State) \\
 	query & $:$ & (TockTree, Tock) & -> & (Tock, Node) \\
 	insert & $:$ & (TockTree, Node) & -> & TockTree \\
@@ -19,24 +19,36 @@ Hence we call it the CEKR Machine.
 \end{figure}
 
 \subsection{Replay Continuation}
-	\begin{tabular}{p{10em} p{2.6em} p{1em} p{0.45\textwidth}}
+\begin{figure}
+\begin{tabular}{p{10em} p{2.6em} p{1em} p{0.45\textwidth}}
 	ReplayContinuation & RK & ::= & NoReplay | RKApply V Tock RK | \\
 	& & & RKCase Tock Env N E N E K RK | \\
 	& & & RKZro Tock K RK | RKFst Tock K RK \\
 	Replay & R & ::= & (State, RK) \\
 \end{tabular}
+\end{figure}
+\begin{figure}
 \begin{mathpar}
+	\inferrule{ }{RApply: (Tock, Node, RK) \to (State, RK)}
 	
-
+	\inferrule{ }{RApply (\_, (\_, st), NoReplay) = (st, NoReplay)}
 	
-	RApply: ((Tock, Node), RK) -> (State, RK)
-	RApply((_, (cells, st)), NoReplay) = (st, NoReplay)
-	RApply((t, (cells, st)), RKApply v t' rk) = if t + 1 <= t' < t + 1 + len(cells) then (Apply v cells[t' - t - 1] t', rk) else (st, RKApply v t' rk)
-	RApply((t, (cells, st)), RKCase t' Env LN L RN R K RK) = if t + 1 <= t' < t + 1 + len(cells) then if cells[t' - t - 1] = VLeft X then ((Step L Env[LN := X] K, t'), rk) else if cells[t' - t - 1] = VRight Y then (Step R Env[RN := Y] K t', rk) else (st, RKCase t' Env LN L RN R K)
-	RApply((t, (cells, st)), RKZro t' K) = if t + 1 <= t' < t + 1 + len(cells) then if cells[t' - t - 1] = VProd X Y then (Apply X K t', RK) else (st, RKZro t' K)
-	RApply((t, (cells, st)), RKFst t' K) = if t + 1 <= t' < t + 1 + len(cells) then if cells[t' - t - 1] = VProd X Y then (Apply Y K t', RK) else (st, RKFst t' K)
+	\inferrule{ }{RApply (\_, (\Nothing, st), rk) = (st, rk)}
+	
+	\inferrule{ t + 1 != t' }{\RApply((t, \Just~ cell, st), rk) = (st, rk)}
+	
+	\inferrule{ t + 1 = t' }{\RApply((t, \Just~ cell, st), \RKApply~ v t' rk) = (\Apply~ v cell t', rk)}
+	
+	\inferrule{ t + 1 = t' }{\RApply((t, \Just~ \VLeft X, st), RKCase~ t'~ Env~ LN~ L~ RN~ R~ K~ RK) = ((\Eval~ L~ Env[LN := X] K, t'), rk)}
+	
+	\inferrule{ t + 1 = t' }{\RApply((t, \Just~ \VRight X, st), RKCase~ t'~ Env~ LN~ L~ RN~ R~ K~ RK) = (\Eval~ R~ Env[RN := Y] K t', rk)}
+	
+	\inferrule{ t + 1 = t' }{\RApply((t, \Just~ \VProd~ X~ Y, st), RKZro~ t'~ K~ RK) = (\Apply~ X~ K~ t', RK)}
+	
+	\inferrule{ t + 1 = t' }{\RApply((t, \Just~ \VProd~ X~ Y, st), RKFst~ t'~ K~ RK) = (\Apply~ Y~ K~ t', RK)}
 \end{mathpar}
 
+\end{figure}
 \begin{mathpar}
 	FromTock: (TockTree, Tock) -> VCell | KCell | State
 	From The tock tree, try to get the corresponding cell.
