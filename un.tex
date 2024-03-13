@@ -1,14 +1,24 @@
 \section{Uncomputing and Recomputing}
 \subsection{Tock}
-The key insight in zombie is to introduce an abstraction layer on pointers and on the heap, turning pointers, keys into memory space, into tocks, which is 64bit int, keys into logical time.
 
-Tock start at 0, and is increased by 1 on every transition step in the abstract machine, or on every allocation. This created a one-to-one mapping between each transition/lookup(event), with each tock less then the current tock. This had unveil the linear ordering between each events. In particular, a Value allocated during tock X can be recreated by re-executing a transition starting at tock Y < X, because the CEK machine is deterministic, and will replay faithfully what had happened.
+The key insight of Zombie is to introduce an abstraction layer between the executing program and the heap. This abstraction layer will allow the heap to transparently discard and recompute the program's intermediate values. To do so, we use the CEK machine to refer to each intermediate value by the index of the computation step that created it. Since each CEK step allocates at most one cell, this correspondence is injective. In other words, instead of storing pointers that refer to memory locations, we will store pointers, which we call ``tocks'', that refer to points in time---that is, CEK step indices.
 
-Note that for any tock X value, there are, barring edge cases many tock Y < X transition that can replay said value. conversely, for any tock Y, there are multiple tock X > Y value it replay. The one-to-many mapping between transition and values permit us to store asymptotically less metadata than the amount of allocated values.
+In our runtime, these ``tocks'' are implemented as 64-bit integers, though in our model we will treat them as logically unbounded integers. There is a global ``current tock'' counter, which starts at 0 and is increased by 1 at every transition step in the abstract machine and at every allocation. The cell allocated at step $i$ is then referred to by the tock $i$, and that tock can then be used as a pointer, stored in data structures, looked up by later computations steps, and the like.
+
+Note that, due to the determinism and linearity of the CEK machine, tocks are strictly ordered and the value computed at some tock $i$ can only depend on values computed at earlier tocks. Moreover we can recreate the value at tock $i$ by merely rerunning the CEK machine from some earlier state to that point. Because the CEK machine is deterministic, this re-execution will produce the same exact value as the original. Because our pointers refer to abstract values, not to specific memory locations, the heap can thus re-compute a value as necessary instead of storing it in memory.
+
+In other words, the way Zombie works is that the heap will store only some of the intermediate values. The ones that aren't stored will instead be recomputed as needed, and the heap will store earlier CEK machine states in order to facilitate that. As the program runs, intermediate values can be discarded from the heap to reduce its memory usage.
+
+Because a value can be recomputed from \emph{any} earlier CEK machine state, it will also turn out to be possible to store relatively few machine states. Therefore, overall memory usage---for the stored intermediate values and the stored machine states---can be kept low. In Zombie, we can store asymptotically fewer machine states than intermediate values, allowing us to asymptotically reduce memory usage.
+
 \subsection{Tock Tree}
-To exploit this linearity, the memory space is transformed into a global binary search tree, a Tock Tree, keyed by the tocks.
 
-Each node in the Tock Tree correspond to a state transition. A node at tock t, representing the transition starting at tock t, contain an array of cells(value representations) it allocated, at tock t+1, t+2\dots, paired with the state it transit to. Note that it store the transit-to state, but not the transit-from state, for that state is useless: the transit-from state can recompute the allocated cells during the transition, but we had already stored it anyway!
+In Zombie, the heap is implemented by a runtime data structure called the tock tree. The tock tree maps tocks to the cells allocated by that step; in other words, the tock tree implements the mapping between tocks and their actual memory locations. Because values can be evicted to save memory, however, not all tocks have a mapping in the tock tree. Instead, every tock that \emph{is} present in the tock tree will also store its machine state. To recompute an evicted value at some tock $i$, the tock tree will find the largest machine state at tock $j < i$ and replay from that tock to tock $i$.
+
+Each node in the Tock Tree stores both a memory cell and a machine state. Specifically, consider the execution of the CEK machine from step $t$. In step $t + 1$ it allocates a cell; it then performs a computation in step $t + 2$. So the node at tock $t$ contains both the cell allocated at step $t + 1$ as well as the machine state \emph{afterwards}, at step $t + 2$.
+
+In order to make this operation efficient, the tock tree is organized as a binary search tree. In a binary search tree, arbitrary keys (tocks) can be looked up in $O(\log(n))$ time, where $n$ is the size of the tock tree, and when a key is not found, the largest key smaller than it can be easily found. Then the heap can replay execution from that point to compute the desired tock.
+
 \begin{figure}
 	\includegraphics[width=0.5\columnwidth]{2}
 	\caption{a node in the tock tree}
@@ -18,13 +28,12 @@ Each node in the Tock Tree correspond to a state transition. A node at tock t, r
 	\caption{the tock tree with multiple nodes}
 \end{figure}
 
-Unlike binary search tree, which fail when a lookup does not find the precise match, the tock tree is lenient. On a lookup of key x, if said key is not in the tock tree, it will return the node with the largest key y < x instead. Intuitively, this represent returning the latest transition that can replay to the queried node.
 \begin{figure}
 	\includegraphics[width=0.5\columnwidth]{4}
 	\caption{lookup failure return the latest earlier node}
 \end{figure}
 
-This allow us to remove any non-leftmost node from the tock tree. After the removal, the query that originally return the removed node, will return the node slightly earlier then that, which we can then replay to regenerate the removed node. In fact, this is the implementation of uncomputation in our system, and any non-leftmost node can be removed, to save memory at any given time.
+
 \subsection{Happy path}
 Every state transition and pointer lookup is then converted into node insertion and node lookup into this data structure. After we had completed a transition, we construct the node, packing the allocated cells during the transition and the transit-to state, inserting the node onto the tock tree.
 
@@ -46,3 +55,7 @@ During the replaying process, more lookup might be issued, and those lookup migh
 
 \subsection{Reified Continuation}
 We treat continuations also as values, and label them with tock/put them in the tock tree, just like any other values. This allow us to also uncompute continuation as well.
+
+\subsection{Eviction}
+
+This allow us to remove any non-leftmost node from the tock tree. After the removal, the query that originally return the removed node, will return the node slightly earlier then that, which we can then replay to regenerate the removed node. In fact, this is the implementation of uncomputation in our system, and any non-leftmost node can be removed, to save memory at any given time.
