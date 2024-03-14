@@ -73,7 +73,7 @@ like:
 \end{mathpar}
 
 Here the antecedent of the inference rule might perform arbitrarily
-many steps, and thus an abitrary amount of computation; derivations
+many steps, and thus an arbitrary amount of computation; derivations
 thus form a tree. In the CEK machine, no such steps exist, and
 derivations in the CEK machine form a flat list. This property of the
 CEK machine is illustrated graphically in \Cref{fig:constant}.
@@ -129,7 +129,7 @@ order to make $\Eval$ and $\Apply$ steps, as shown in \Cref{fig:eval}
 and \Cref{fig:apply}.
 
 Importantly, every CEK machine step (whether $\Eval$ or $\Apply$)
-makes at most two calls to $\Lookup$ and $\Alloc$, of which at most
+makes at most three calls to $\Lookup$ and $\Alloc$, of which at most
 one is an $\Alloc$ call. This means that each allocation the program
 makes can be uniquely identified by the tock for the machine state
 where it is allocated. This identification is the core abstraction
