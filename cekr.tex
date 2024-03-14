@@ -4,16 +4,16 @@ Hence we call it the CEKR Machine.
 
 \subsection{Tock Tree}
 \begin{figure}
-	\begin{tabular}{p{6em} p{2.6em} p{7em} p{1em} p{0.45\textwidth}}
+	\begin{tabular}{p{4em} p{2.6em} p{10em} p{1em} p{0.45\textwidth}}
 	before & $:$ & Value & = & P<VCell> \\
 	after & $:$ & Value & = & Tock \\
 	before & $:$ & Continuation & = & P<KCell> \\
 	after & $:$ & Continuation & = & Tock \\
 	before & $:$ & State & ::= & $\Eval~E~\Env~K \mid \Apply~K~V $ \\
 	after & $:$ & State & ::= & $\Eval~E~\Env~K~Tock \mid \Apply~K~V~Tock $ \\
-	Node & & & = & ([KCell | VCell], State) \\
-	query & $:$ & (TockTree, Tock) & -> & (Tock, Node) \\
-	insert & $:$ & (TockTree, Node) & -> & TockTree \\
+	Node & & & = & (Maybe(KCell | VCell), State) \\
+	Query & $:$ & (TockTree, Tock) & -> & (Tock, Node) \\
+	Insert & $:$ & (TockTree, Tock, Node) & -> & TockTree \\
 	\end{tabular}
 	\caption{Tock Tree API. Note that we deliberately avoid dictating what node get uncomputed, in order to decouple uncomputation/recomputation with selecting what to uncompute. Instead, node might be dropped during insertion into TockTree. One might e.g. set a limit onto the amount of nodes in the Tock Tree. }
 \end{figure}
@@ -23,65 +23,67 @@ Hence we call it the CEKR Machine.
 \begin{tabular}{p{10em} p{2.6em} p{1em} p{0.45\textwidth}}
 	ReplayContinuation & RK & ::= & NoReplay | RKApply V Tock RK | \\
 	& & & RKCase Tock Env N E N E K RK | \\
-	& & & RKZro Tock K RK | RKFst Tock K RK \\
+	& & & RKZro Tock K RK | RKFst Tock K RK | \\
+	& & & RKApp Tock Env E K RK \\
 	Replay & R & ::= & (State, RK) \\
 \end{tabular}
 \end{figure}
 \begin{figure}
-\begin{mathpar}
-	\inferrule{ }{RApply: (Tock, Node, RK) \to (State, RK)}
-	
-	\inferrule{ }{RApply (\_, (\_, st), NoReplay) = (st, NoReplay)}
-	
-	\inferrule{ }{RApply (\_, (\Nothing, st), rk) = (st, rk)}
-	
-	\inferrule{ t + 1 != t' }{\RApply((t, \Just~ cell, st), rk) = (st, rk)}
-	
-	\inferrule{ t + 1 = t' }{\RApply((t, \Just~ cell, st), \RKApply~ v t' rk) = (\Apply~ v cell t', rk)}
-	
-	\inferrule{ t + 1 = t' }{\RApply((t, \Just~ \VLeft X, st), RKCase~ t'~ Env~ LN~ L~ RN~ R~ K~ RK) = ((\Eval~ L~ Env[LN := X] K, t'), rk)}
-	
-	\inferrule{ t + 1 = t' }{\RApply((t, \Just~ \VRight X, st), RKCase~ t'~ Env~ LN~ L~ RN~ R~ K~ RK) = (\Eval~ R~ Env[RN := Y] K t', rk)}
-	
-	\inferrule{ t + 1 = t' }{\RApply((t, \Just~ \VProd~ X~ Y, st), RKZro~ t'~ K~ RK) = (\Apply~ X~ K~ t', RK)}
-	
-	\inferrule{ t + 1 = t' }{\RApply((t, \Just~ \VProd~ X~ Y, st), RKFst~ t'~ K~ RK) = (\Apply~ Y~ K~ t', RK)}
-\end{mathpar}
+	\begin{mathpar}
+		\inferrule{ }{RApply: (Tock, Node, RK) \to (State, RK)}
+		
+		\inferrule{ }{RApply (\_, (\_, st), NoReplay) = (st, NoReplay)}
+		
+		\inferrule{ }{RApply (\_, (\Nothing, st), rk) = (st, rk)}
+		
+		\inferrule{ t + 1 != t' }{\RApply((t, \Just~ cell, st), rk) = (st, rk)}
+		
+		\inferrule{ t + 1 = t' }{\RApply((t, \Just~ cell, st), \RKApply~ v t' rk) = (\Apply~ v cell t', rk)}
+		
+		\inferrule{ t + 1 = t' }{\RApply((t, \Just~ \VLeft X, st), RKCase~ t'~ Env~ LN~ L~ RN~ R~ K~ RK) = ((\Eval~ L~ Env[LN := X] K, t'), rk)}
+		
+		\inferrule{ t + 1 = t' }{\RApply((t, \Just~ \VRight X, st), RKCase~ t'~ Env~ LN~ L~ RN~ R~ K~ RK) = (\Eval~ R~ Env[RN := Y] K t', rk)}
+		
+		\inferrule{ t + 1 = t' }{\RApply((t, \Just~ \VProd~ X~ Y, st), RKZro~ t'~ K~ RK) = (\Apply~ X~ K~ t', RK)}
+		
+		\inferrule{ t + 1 = t' }{\RApply((t, \Just~ \VProd~ X~ Y, st), RKFst~ t'~ K~ RK) = (\Apply~ Y~ K~ t', RK)}
 
+		\inferrule{ t + 1 = t' }{\RApply((t, \Just~ \Clos \Env'~ N~ E, st), RKApp~ t'~ \Env~ X~ K RK) = (\Eval X~ \Env~ (\KApp1 \Env' N E K), RK)}
+	\end{mathpar}
 \end{figure}
+
+\begin{figure}
 \begin{mathpar}
-	FromTock: (TockTree, Tock) -> VCell | KCell | State
-	From The tock tree, try to get the corresponding cell.
-	If the cell is uncomputed, return the closest state that can recompute it.
-	
-	FromTock(tt, t) = 
-	let (Node cells state, nt) = query(tt, t) in
-	if nt + 1 <= t < nt + 1 + len(cells) then cells[t - nt - 1] else state
-	
-	goto: (Replay, TockTree) -> (Replay, TockTree)
-	State = Step Expr Env K | Apply K V
+	\inferrule{ }{(\text{State}, rk), TockTree \leadsto (\text{State}, rk), TockTree} \and
+	\inferrule{st = \Apply(K, \Env(N), t+1) \and node = (Nothing, st) \and TT' = insert(TT, t, node) }{(\Eval(N, \Env, K, t), rk), TT \leadsto \RApply(t, node, rk), TT'} \and
+	\inferrule{st = \Eval(X, \Env, t+1, t+2) \and node = (\Just~ \KLeft~K, st) \and TT' = insert(TT, t, node)}{(\Eval(\sLeft~X, \Env, K, t), rk), TT \leadsto \RApply(t, node, rk), TT'} \and
+	\inferrule{st = \Eval(X, \Env, t+1, t+2) \and node = (\Just~ \KRight~K, st) \and TT' = insert(TT, t, node)}{(\Eval(\sRight~X, \Env, K, t), rk), TT \leadsto \RApply(t, node, rk), TT'} \and
+	\inferrule{st = \Eval(X, \Env, t+1, t+2) \and node = (\Just~ \KProd_0~K~R, st) \and TT' = insert(TT, t, node)}{(\Eval(\sProd~L~R, \Env, K, t), rk), TT \leadsto \RApply(t, node, rk), TT'} \and
+	\inferrule{st = \Eval(X, \Env, t+1, t+2) \and node = (\Just~ \KZro~K, st) \and TT' = insert(TT, t, node)}{(\Eval(\sZro~X, \Env, K, t), rk), TT \leadsto \RApply(t, node, rk), TT'} \and
+	\inferrule{st = \Eval(X, \Env, t+1, t+2) \and node = (\Just~ \KFst~K, st) \and TT' = insert(TT, t, node)}{(\Eval(\sFst~X, \Env, K, t), rk), TT \leadsto \RApply(t, node, rk), TT'} \and
+	\inferrule{st = \Eval(X, \Env, t+1, t+2) \and node = (\Just~ \KCase~\mathit{LN}~L~\mathit{RN}~R~\Env, st) \and TT' = insert(TT, t, node)}{(Eval(\sCase~X~\mathit{LN}~L~\mathit{RN}~R, \Env, K, t), rk), TT \leadsto \RApply(t, node, rk), TT'} \and
+	\inferrule{st = \Eval(X, \Env, t+1, t+2) \and node = (\Just~ \KLet~A~K~C~\Env, st) \and TT' = insert(TT, t, node)}{(\Eval(\sLet~A~B~C, \Env, K, t), rk), TT \leadsto \RApply(t, node, rk), TT'} \and
+	\inferrule{st = \Eval(X, \Env, t+1, t+2) \and node = (\Just~ \KApp_0~K~X, st) \and TT' = insert(TT, t, node)}{(\Eval(\sApp~F~X, \Env, K, t), rk), TT \leadsto \RApply(t, node, rk), TT'} \and
+	\inferrule{st = \Eval(X, \Env, t+1, t+2) \and node = (\Just~ \Clos~\Env(\text{fv})\cdots N~E, st) \and TT' = insert(TT, t, node)}{(\Eval(\sLam~N~E, \Env, K, t), rk), TT \leadsto \RApply(t, node, rk), TT'} \and
 \end{mathpar}
+\end{figure}
+\begin{figure}
 \begin{mathpar}
-	Apply(P, V) = apply(Lookup(P), V)
-	apply(KLeft K, V), H goto Apply(K, P), H' where (P, H') = Alloc(VLeft V, H)
-	
-	apply(KRight K, V), H goto Apply(K, P), H' where (P, H') = Alloc(VRight V, H)
-	
-	apply(KCase Env LN L RN R K, V), H goto 
-	if LookUp(V, H) = VLeft V then Step(L, Env(LN := V), K)
-	= VRight V then Step(R, Env(RN := V), K)
-	
-	apply(KProd0 Env R K, V), H goto Step(R, Env, P), H' where (P, H') = Alloc(KProd1 V Env K, H)
-	
-	apply(KProd1 L K, V), H goto Apply(P, K), H' where (P, H') = Alloc(VProd L V, H)
-	
-	apply(KZro K, V), H goto Apply(X, K), H where VProd X Y = LookUp(V, H)
-	
-	apply(KFst K, V), H goto Apply(Y, K), H where VProd X Y = LookUp(V, H)
-	
-	apply(KLet A Env C K, B), H goto Step(C, Env(A := B), K), H
-	
-	apply(KApp0 Env X K, V) goto Step(X, Env, P) where (P, H'), H' = Alloc(KApp1 V K, H)
-	
-	apply(KApp1 F K, V), H goto Step(E, Env(N := V), K), H where (Clos Env N E) = LookUp(V, H)
+	\inferrule{Query(tt, K) = (X, (\_, st)) \and X != K - 1}{(Apply(K, V, t), rk), TT \leadsto (st, RKApply~ V~ k~ rk), TT} \and
+	\inferrule{Query(tt, K) = (K-1, (\Just~ KLeft K', \_)) \and st = \Apply(K', t+1, t+2) \and node = (\Just~ VLeft V, st) \and TT' = insert(TT, t, node)}{(Apply(K, V, t), rk), TT \leadsto \RApply(t, node, rk), TT'} \and
+	\inferrule{Query(tt, K) = (K-1, (\Just~ KRight K', \_)) \and st = \Apply(K', t+1, t+2) \and node = (\Just~ VRight V, st) \and TT' = insert(TT, t, node)}{(Apply(K, V, t), rk), TT \leadsto \RApply(t, node, rk), TT'} \and
+	\inferrule{Query(tt, K) = (K-1, (\Just~ KCase Env LN L RN R K', \_)) \and Query(tt, V) = (X, (\_, st)) \and X != V - 1}{(Apply(K, V, t), rk), TT \leadsto (st, RKCase~ V~ Env LN L RN R K' rk), TT} \and
+	\inferrule{Query(tt, K) = (K-1, (\Just~ KCase Env LN L RN R K', \_)) \and Query(tt, V) = (V-1, (\Just~ VLeft X, \_)) \and st = \Eval(L, \Env[LN := X], K', t+1) \and node = (Nothing, st) \and TT' = insert(TT, t, node)}{(Apply(K, V, t), rk), TT \leadsto \RApply(t, node, rk), TT'} \and
+	\inferrule{Query(tt, K) = (K-1, (\Just~ KCase Env LN L RN R K', \_)) \and Query(tt, V) = (V-1, (\Just~ VRight X, \_)) \and st = \Eval(R, \Env[RN := X], K', t+1) \and node = (Nothing, st) \and TT' = insert(TT, t, node)}{(Apply(K, V, t), rk), TT \leadsto \RApply(t, node, rk), TT'} \and
+	\inferrule{Query(tt, K) = (K-1, (\Just~ KProd0 Env R K', \_)) \and st = \Eval(R, Env, t+1, t+2) \and node = (Just KProd1 V Env K', st) \and TT' = insert(TT, t, node)}{(Apply(K, V, t), rk), TT \leadsto \RApply(t, node, rk), TT'} \and
+	\inferrule{Query(tt, K) = (K-1, (\Just~ KProd1 L K', \_)) \and st = \Apply(K', t+1, t+2) \and node = (Just VProd L V, st) \and TT' = insert(TT, t, node)}{(Apply(K, V, t), rk), TT \leadsto \RApply(t, node, rk), TT'} \and
+	\inferrule{Query(tt, K) = (K-1, (\Just~ KZro K', \_)) \and Query(tt, V) = (X, (\_, st)) \and X != V - 1}{(Apply(K, V, t), rk), TT \leadsto (st, RKZro~ V~ K' rk), TT} \and
+	\inferrule{Query(tt, K) = (K-1, (\Just~ KZro K', \_)) \and Query(tt, V) = (V-1, (VProd X Y, \_)) \and st = \Apply(K', X, t+1) \and node = (Nothing, st) \and TT' = insert(TT, t, node)}{(Apply(K, V, t), rk), TT \leadsto \RApply(t, node, rk), TT'} \and
+	\inferrule{Query(tt, K) = (K-1, (\Just~ KFst K', \_)) \and Query(tt, V) = (X, (\_, st)) \and X != V - 1}{(Apply(K, V, t), rk), TT \leadsto (st, RKFst~ V~ K' rk), TT} \and
+	\inferrule{Query(tt, K) = (K-1, (\Just~ KFst K', \_)) \and Query(tt, V) = (V-1, (VProd X Y, \_)) \and st = \Apply(K', Y, t+1) \and node = (Nothing, st) \and TT' = insert(TT, t, node)}{(Apply(K, V, t), rk), TT \leadsto \RApply(t, node, rk), TT'} \and
+	\inferrule{Query(tt, K) = (K-1, (\Just~ KLet A Env C K', \_)) \and st = \Eval(C, Env[A := V], K', t+1) \and node = (Nothing, st) \and TT' = insert(TT, t, node)}{(Apply(K, V, t), rk), TT \leadsto \RApply(t, node, rk), TT'} \and
+	\inferrule{Query(tt, K) = (K-1, (\Just~ KApp0 Env X K', \_)) \and Query(tt, V) = (X', (\_, st)) \and X' != V - 1}{(Apply(K, V, t), rk), TT \leadsto (st, RKApply~ V~ \Env~ X K'~ rk), TT} \and
+	\inferrule{Query(tt, K) = (K-1, (\Just~ KApp0 Env X K', \_)) \and Query(tt, V) = (V-1, (Clos Env' N E), \_), st = \Eval(X, Env, t+1, t+2) \and node = (Just KApp1 Env' N E K', st) \and TT' = insert(TT, t, node)}{(Apply(K, V, t), rk), TT \leadsto \RApply(t, node, rk), TT'} \and
+	\inferrule{Query(tt, K) = (K-1, (\Just~ KApp1 Env N E K', \_)) \and st = \Eval(E, Env[N := V], K', t+1) \and node = (Nothing, st) \and TT' = insert(TT, t, node)}{(Apply(K, V, t), rk), TT \leadsto \RApply(t, node, rk), TT'} \and
 \end{mathpar}
+\end{figure}

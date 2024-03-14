@@ -78,7 +78,7 @@ Below we sketch out the language and the cek machine. Note that this is the stan
 		\Done \mid
 		\KLet~N~\Env~E~K \mid
 		\KApp_0~\Env~E~K \mid
-		\KApp_1~V~K \mid
+		\KApp_1~\Env~N~E~K \mid
 		\KProd_0~\Env~E~K \mid
 		\KProd_1~V~K \mid
 		\KZro~K \mid
@@ -127,9 +127,9 @@ Below we sketch out the language and the cek machine. Note that this is the stan
 		\inferrule{\Lookup(P, H) = \KProd_1~L~K \and \Alloc(\VProd~L~V, H) = (P, H')}{\Apply(P', V), H \leadsto \Apply(K, P'), H'} \and
 		\inferrule{\Lookup(P, H) = \KZro~K \and \Lookup(V, H) = (\VProd~X~Y)}{\Apply(P, V), H \leadsto \Apply(K, X), H'} \and
 		\inferrule{\Lookup(P, H) = \KFst~K \and \Lookup(V, H) = (\VProd~X~Y)}{\Apply(P, V), H \leadsto \Apply(K, Y), H'} \and
-		\inferrule{\Lookup(P, H) = \KLet~A~\Env~C~K}{\Apply(P, V), H \leadsto \Eval(C, \Env(A := V), K), H'} \and
-		\inferrule{\Lookup(P, H) = \KApp_0~\Env~X~K \and \Alloc(\KApp_1~V~K, H) = (P', H')}{\Apply(P, V), H \leadsto \Eval(X, \Env, P'), H'} \and
-		\inferrule{\Lookup(P, H) = \KApp_1~F~K \and \Lookup(F, H) = (\Clos~\Env~N~E, H)}{\Apply(P, V), H \leadsto \Eval(E, \Env(N := V), K), H'}
+		\inferrule{\Lookup(P, H) = \KLet~A~\Env~C~K}{\Apply(P, V), H \leadsto \Eval(C, \Env[A := V], K), H'} \and
+		\inferrule{\Lookup(P, H) = \KApp_0~\Env~X~K \and \Lookup(V, H) = (\Clos~\Env'~N~E, H) \and \Alloc(\KApp_1~\Env'~N~E~K, H) = (P', H')}{\Apply(P, V), H \leadsto \Eval(X, \Env, P'), H'} \and
+		\inferrule{\Lookup(P, H) = \KApp_1~\Env~N~E~K}{\Apply(P, V), H \leadsto \Eval(E, \Env[N := V], K), H'}
 	\end{mathpar}
 	\caption{Abstract Machine Transition: Apply}
 \end{figure}
