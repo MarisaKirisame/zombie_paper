@@ -1,45 +1,139 @@
 \section{Core Language}	
-Zombie works on a untyped, purely functional, call by value language \todo{give it a name so we can refer to it}. Program in the language is then executed by the CEK abstract machine.
 
-The CEK machine is an transition system between states. In other words, given a state, the CEK machine formalize what that state might transit into. Running a program under the CEK machine then correspond to transiting the machine until it reach a non-transitable state.
+Zombie works on a purely functional language with products, sum types,
+and first-class functions called $\lambda_Z$. For simplicity in this
+paper, we treat the language as untyped. The syntax of $\lambda_Z$ is
+shown in \Cref{fig:syntax}; its semantics are standard. The full
+Zombie implementation supports additional features, such as primitive
+types and input/output; \Cref{sec:impl} describes how these features
+are layered on top of the core implementation described here.
 
-A state in the CEK machine is consisted of 3 parts:
+Importantly, because Zombie is purely functional, programs are totally
+deterministic, in the sense that evaluating a given expression in a
+given environment always returns the same result. This is essential
+for Zombie to work correctly.
+
+\subsection{CEK Machine}
+
+The key insight of Zombie is to assign an unique identifier to any
+value ever allocated during the program's execution. Conceptually, it
+identifies each value with the execution step that allocated it. It
+does this using a variant of the CEK machine.
+
+The CEK machine is a well-known abstract machine for executing untyped
+lambda calculi, where the machine state consists of three parts:
 
 \begin{enumerate}
 	\item \textcolor{blue}{C}ontrol, the expression currently being evaluated.
-	\item \textcolor{blue}{E}nvironment, a name-key map of free variable of Control.
-	\item \textcolor{blue}{K}ontinuation, which will be invoked when Control is evaluated.
+	\item \textcolor{blue}{E}nvironment,
+          a map from the free variables of the Control to their values.
+	\item \textcolor{blue}{K}ontinuation, which is to be invoked
+          with the value the Control evaluates to.
 \end{enumerate}
 
-Our formalization of the CEK machine alternate between two mode.
+\todo{We should use $C$ for expressions, to match the CEK terminology.}
 
-It start with the step mode, which break down a complex expression, focusing on a part of it, storing the other parts onto the continuation, until it find an atomic expression, then convert the atomic expression into a value, and call the other mode, apply.
+In our variation of the CEK machine, we split the evaluation phase
+from the invocation of the continuation, resulting in a machine state
+that looks like this:
+\[
+\text{State} \operatorname{::=} \Eval~E~\Env~K \mid \Apply~K~V
+\]
+In other words, our CEK machine can be in an $\Eval$ or an $\Apply$
+state; the $\Eval$ stores the classic control, environment, and
+kontinuation, while the $\Apply$ state stores just a continuation and
+a value. The precise syntax of values and kontinuations are given in
+\Cref{fig:defs}.
 
-The apply mode transform the values according to the continuation, giving back control to step once there is more expression to evaluate.
+Execution in the CEK machine involves a series of transitions between
+these machine states; in other words, it is a transition system. To
+run a program $C$ in the CEK machine, one first sets up an initial
+state $(\Eval~C~\{\}~\Done)$ whose Control is the expression to
+evaluate, whose Environment is empty, and whose Kontinuation is a
+special $\Done$ continuation. The rules of the CEK machine are then
+used to transition from one machine state to another, until finally
+reaching the state $\Apply~\Done~V$. In that state, $V$ is the result
+of evaluating of $C$.%
+\footnote{Note that, because $\lambda_Z$ is untyped, it contains
+non-terminating programs using, for example, the $Y$ combinator. In
+the CEK machine, these programs create an infinite sequence of machine
+states that do not include a terminating $\Apply~\Done~V$.}
 
-The machine start with a special continuation, Done, and end when Value V is being applied to the Done continuation. This denote that the original expression evaluate to value V.
+A notable property of the CEK machine is that each transition performs
+a bounded amount of work. Contrast this to a traditional operation
+semantics, where the semantics of a \sCase statement might be something
+like:
 
-We had deliberately chosen to represent our semantic by the CEK machine, as it have three crucial properties:
+\begin{mathpar}
+ \inferrule{
+   \Gamma \vdash e \to^* \sLeft~\Gamma' \vdash V
+ }{\Gamma \vdash \sCase~e~x~e_l~y~e_r
+   \to \Gamma', x : V \vdash e_l
+ }
+\end{mathpar}
 
-\begin{enumerate}
-	\item It is deterministic. Given any state, it can transit to at most 1 state.
-	
-	\item It is linear. An execution of a program can be characterized as a (possibly infinite) sequence the abstract machine transit through.
-	
-	\item Each step take a small, bounded amount of work, and especially for lookup/alloc.
-\end{enumerate}
+Here the antecedent of the inference rule might perform arbitrarily
+many steps, and thus an abitrary amount of computation; derivations
+thus form a tree. In the CEK machine, no such steps exist, and
+derivations in the CEK machine form a flat list. This property of the
+CEK machine is illustrated graphically in \Cref{fig:constant}.
+
+\begin{figure}
+\includegraphics[width=0.5\columnwidth]{1}
+\caption{the machine does a small constant amount of pointer lookup}
+\label{fig:constant}
+\end{figure}
+
+\subsection{Determinism and Tocks}
+
+Importantly, the CEK machine is linear and deterministic. This means
+that every CEK machine state transitions to at most one state. That in
+turn means that if we were to ``rewind'' a CEK machine, putting it in
+an earlier state, it would transition through the exact same sequence
+of states in the exact same order. This determinism or
+``replayability'' is essential for Zombie to work, and is illustrated
+graphically in \Cref{fig:replayability}.
+
 \begin{figure}
 \includegraphics[width=0.5\columnwidth]{0}
 \caption{the deterministic, linear nature of the CEK machine}
+\label{fig:replayability}
 \end{figure}
-\begin{figure}
-	\includegraphics[width=0.5\columnwidth]{1}
-	\caption{the machine does a small constant amount of pointer lookup}
-\end{figure}
-Note how our implementation is different from a CEK Machine: In particular, we had made pointers and pointer lookup explicit, as we later have to abstract over and reason over them. 
-Similarly, allocation is now explicit as well.
 
-Below we sketch out the language and the cek machine. Note that this is the standard semantic - there is neither uncomputation nor replaying present. Uncomputation will be represented independently afterward.
+One key property guaranteed by determinism is that, for a given
+initial program $C$, the machine state at any point during $C$'s
+execution can be uniquely identified by how many steps have been
+executed since the initial state. In other words, the initial state is
+identified with the number $0$, the next state it transitions to with
+the number $1$, and so on. This state number, which we call a
+``tock'', is logically unbounded, but in our implementation it is
+stored as a 64-bit integer. In our implementation, that suffices for
+several decades of runtime on current hardware. 
+
+\subsection{Heap Memory}
+
+Because we are interested the total memory usage of $\lambda_Z$
+program, our variant of the CEK machine includes an explicit heap and
+explicit pointers. That is, in our formalization values $V$ are
+formalized as pointers $P\langle \VCell \rangle$ to ``value cells''.
+Values cells---which can be closures, products, and sums---in turn
+contain values, that is, pointers.
+
+During execution, the CEK machine looks up these values using an
+explicit heap $H$. To interact with the heap, the CEK machine uses two
+functions. $\Lookup : (P \langle X \rangle, H) \to X$ dereferences a
+pointer in the heap. $\Alloc : (X, H) \to (P \langle X \rangle, H')$
+stores a value in the heap, returning a pointer to it and the updated
+heap. Transitions in the CEK machine call $\Lookup$ and $\Alloc$ in
+order to make $\Eval$ and $\Apply$ steps, as shown in \Cref{fig:eval}
+and \Cref{fig:apply}.
+
+Importantly, every CEK machine step (whether $\Eval$ or $\Apply$)
+makes at most two calls to $\Lookup$ and $\Alloc$, of which at most
+one is an $\Alloc$ call. This means that each allocation the program
+makes can be uniquely identified by the tock for the machine state
+where it is allocated. This identification is the core abstraction
+that drives Zombie's implementation.
 
 \newcommand{\mytableshape}{p{6em} p{2.6em} p{1em} p{0.45\textwidth}}
 \begin{figure}
@@ -57,17 +151,8 @@ Below we sketch out the language and the cek machine. Note that this is the stan
 		\sRight~E \mid
 		\sCase~E~N~E~N~E $
 	\end{tabular}
-	\caption{The source language}
-\end{figure}
-
-\begin{figure}
-	\begin{tabular}{\mytableshape}
-		Heap & $H$ & $::=$ & An abstract key value store \\
-		Pointer$\langle X \rangle$ & $P\langle X \rangle$ & $::=$ & Key into heap with value type $X$ \\
-		Alloc & & : & $(X, H) \to (\text{Pointer}\langle X \rangle, H)$ \\
-		Lookup & & : & $(\text{Pointer}\langle X \rangle, H) \to X$ \\
-	\end{tabular}
-	\caption{Heap API}
+	\caption{The syntax of $\lambda_Z$.}
+        \label{fig:syntax}
 \end{figure}
 
 \begin{figure}
@@ -98,6 +183,7 @@ Below we sketch out the language and the cek machine. Note that this is the stan
 		State & & ::= & $\Eval~E~\Env~K \mid \Apply~K~V $ \\
 	\end{tabular}
 	\caption{Definitions for the CEK Machine}
+        \label{fig:defs}
 \end{figure}
 
 \begin{figure}
@@ -114,7 +200,8 @@ Below we sketch out the language and the cek machine. Note that this is the stan
 		\inferrule{\Alloc(\KApp_0~K~X, H) = (P, H')}{\Eval(\sApp~F~X, \Env, K), H \leadsto \Eval(F, P), H'} \and
 		\inferrule{\Alloc(\Clos~\Env(\text{fv})\cdots N~E, H) = (P, H')}{\Eval(\sLam~N~E, \Env, K), H \leadsto \Apply(K, P), H'}
 	\end{mathpar}
-	\caption{Abstract Machine Transition: Step}
+	\caption{Abstract Machine Transition: Eval}
+        \label{fig:eval}
 \end{figure}
 
 \begin{figure}
@@ -132,4 +219,16 @@ Below we sketch out the language and the cek machine. Note that this is the stan
 		\inferrule{\Lookup(P, H) = \KApp_1~\Env~N~E~K}{\Apply(P, V), H \leadsto \Eval(E, \Env[N := V], K), H'}
 	\end{mathpar}
 	\caption{Abstract Machine Transition: Apply}
+        \label{fig:apply}
+\end{figure}
+
+\begin{figure}
+	\begin{tabular}{\mytableshape}
+		Heap & $H$ & $::=$ & An abstract key value store \\
+		Pointer$\langle X \rangle$ & $P\langle X \rangle$ & $::=$ & Key into heap with value type $X$ \\
+		Lookup & & : & $(\text{Pointer}\langle X \rangle, H) \to X$ \\
+		Alloc & & : & $(X, H) \to (\text{Pointer}\langle X \rangle, H)$ \\
+	\end{tabular}
+	\caption{Heap API}
+        \label{fig:heap}
 \end{figure}
