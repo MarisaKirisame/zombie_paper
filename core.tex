@@ -141,15 +141,15 @@ that drives Zombie's implementation.
 		Name & $N$ & $::=$ & A set of distinct names \\
 		Expr & $E$ & $::=$ & $
 		N \mid
-		\sLet~N~E~E \mid
-		\sLam~N~E \mid
-		\sApp~E~E \mid
-		\sProd~E~E \mid
-		\sZro~E \mid
-		\sFst~E \mid
-		\sLeft~E \mid
-		\sRight~E \mid
-		\sCase~E~N~E~N~E $
+		\sLet~x=A~\sIn~B \mid
+		\backslash x.~A \mid
+		f(x) \mid
+		(x, y) \mid
+		x.0 \mid
+		x.1 \mid
+		\sLeft~x \mid
+		\sRight~y \mid
+		\sCase~x~\sOf~\sLeft~a\Rightarrow L~||~\sRight~b\Rightarrow R $
 	\end{tabular}
 	\caption{The syntax of $\lambda_Z$.}
         \label{fig:syntax}
@@ -192,13 +192,13 @@ that drives Zombie's implementation.
 		\inferrule{ }{\Eval(N, \Env, K), H \leadsto \Apply(K, \Env(N)), H} \and
 		\inferrule{\Alloc(\KLeft~K, H) = (P, H')}{\Eval(\sLeft~X, \Env, K), H \leadsto \Eval(X, \Env, P), H'} \and
 		\inferrule{\Alloc(\KRight~K, H) = (P, H')}{\Eval(\sRight~X, \Env, K), H \leadsto \Eval(X, \Env, P), H'} \and
-		\inferrule{\Alloc(\KProd_0~K~R, H) = (P, H')}{\Eval(\sProd~L~R, \Env, K), H \leadsto \Eval(L, \Env, P), H'} \and
-		\inferrule{\Alloc(\KZro~K, H) = (P, H')}{\Eval(\sZro~X, \Env, K), H \leadsto \Eval(X, \Env, P), H'} \and
-		\inferrule{\Alloc(\KFst~K, H) = (P, H')}{\Eval(\sFst~X, \Env, K), H \leadsto \Eval(X, \Env, P), H'} \and
-		\inferrule{\Alloc(\KCase~\mathit{LN}~L~\mathit{RN}~R~\Env, H) = (P, H')}{\Eval(\sCase~X~\mathit{LN}~L~\mathit{RN}~R, \Env, K), H \leadsto \Eval(X, \Env, P), H'} \and
-		\inferrule{\Alloc(\KLet~A~K~C~\Env, H) = (P, H')}{\Eval(\sLet~A~B~C, \Env, K), H \leadsto \Eval(B, \Env, P), H'} \and
-		\inferrule{\Alloc(\KApp_0~K~X, H) = (P, H')}{\Eval(\sApp~F~X, \Env, K), H \leadsto \Eval(F, P), H'} \and
-		\inferrule{\Alloc(\Clos~\Env(\text{fv})\cdots N~E, H) = (P, H')}{\Eval(\sLam~N~E, \Env, K), H \leadsto \Apply(K, P), H'}
+		\inferrule{\Alloc(\KProd_0~K~R, H) = (P, H')}{\Eval((L, R), \Env, K), H \leadsto \Eval(L, \Env, P), H'} \and
+		\inferrule{\Alloc(\KZro~K, H) = (P, H')}{\Eval(X.0, \Env, K), H \leadsto \Eval(X, \Env, P), H'} \and
+		\inferrule{\Alloc(\KFst~K, H) = (P, H')}{\Eval(X.1, \Env, K), H \leadsto \Eval(X, \Env, P), H'} \and
+		\inferrule{\Alloc(\KCase~\mathit{LN}~L~\mathit{RN}~R~\Env, H) = (P, H')}{\Eval(\sCase~X~\sOf~\sLeft~LN\Rightarrow L~||~\sRight~RN\Rightarrow R, \Env, K), H \leadsto \Eval(X, \Env, P), H'} \and
+		\inferrule{\Alloc(\KLet~A~K~C~\Env, H) = (P, H')}{\Eval(\sLet~A=B~\sIn~C, \Env, K), H \leadsto \Eval(B, \Env, P), H'} \and
+		\inferrule{\Alloc(\KApp_0~K~X, H) = (P, H')}{\Eval(F(X), \Env, K), H \leadsto \Eval(F, P), H'} \and
+		\inferrule{\Alloc(\Clos~\Env(\text{fv})\cdots N~E, H) = (P, H')}{\Eval(\backslash N. E, \Env, K), H \leadsto \Apply(K, P), H'}
 	\end{mathpar}
 	\caption{Abstract Machine Transition: Eval}
         \label{fig:eval}
