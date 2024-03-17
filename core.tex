@@ -179,11 +179,39 @@ that drives Zombie's implementation.
 		\VLeft~V \mid
 		\VRight~V $ \\
 		
-		Environment & $\Env$ & ::= & $(N, V) \dots$ \\
+		Environment & $\Env$ & ::= & $[(N, V)]$ \\
 		State & & ::= & $\Eval~E~\Env~K \mid \Apply~K~V $ \\
 	\end{tabular}
 	\caption{Definitions for the CEK Machine}
         \label{fig:defs}
+\end{figure}
+\begin{figure}
+	\begin{mathpar}
+		\inferrule{ }{\text{State} \leadsto \text{State}} \and
+		\inferrule{ }{\Eval(N, \Env, K) \leadsto \Apply(K, \Env(N))} \and
+		\inferrule{ }{\Eval(\sLeft~X, \Env, K) \leadsto \Eval(X, \Env, \KLeft~K)} \and
+		\inferrule{ }{\Eval(\sRight~X, \Env, K) \leadsto \Eval(X, \Env, \KRight~K)} \and
+		\inferrule{ }{\Eval((L, R), \Env, K) \leadsto \Eval(L, \Env, \KProd_0~K~R)} \and
+		\inferrule{ }{\Eval(X.0, \Env, K) \leadsto \Eval(X, \Env, \KZro~K)} \and
+		\inferrule{ }{\Eval(X.1, \Env, K) \leadsto \Eval(X, \Env, \KFst~K)} \and
+		\inferrule{ }{\Eval(\sCase~X~\sOf~\sLeft~LN\Rightarrow L~||~\sRight~RN\Rightarrow R, \Env, K) \leadsto \Eval(X, \Env, \KCase~\mathit{LN}~L~\mathit{RN}~R~\Env)} \and
+		\inferrule{ }{\Eval(\sLet~A=B~\sIn~C, \Env, K) \leadsto \Eval(B, \Env, \KLet~A~K~C~\Env)} \and
+		\inferrule{ }{\Eval(F(X), \Env, K) \leadsto \Eval(F, \KApp_0~K~X)} \and
+		\inferrule{ }{\Eval(\backslash N. E, \Env, K) \leadsto \Apply(K, \Clos~\Env(\text{fv})\cdots N~E)} \and
+		\inferrule{ }{\Apply(\KLeft~K, V) \leadsto \Apply(K, \VLeft~V)} \and
+		\inferrule{ }{\Apply(\KRight~K, V) \leadsto \Apply(K, \VRight~V)} \and
+		\inferrule{ }{\Apply(\KCase~\Env~\mathit{LN}~L~\mathit{RN}~R~K, VLeft V) \leadsto \Eval(L, \Env(\mathit{LN} := V), K)} \and
+		\inferrule{ }{\Apply(\KCase~\Env~\mathit{LN}~L~\mathit{RN}~R~K, VRight V) \leadsto \Eval(R, \Env(\mathit{RN} := V), K)} \and
+		\inferrule{ }{\Apply(\text{KProd0}~\Env~R~K, V) \leadsto \Eval(R, Env, \KProd_1~V~K)} \and
+		\inferrule{ }{\Apply(\KProd_1~L~K, V) \leadsto \Apply(K, \VProd~L~V)} \and
+		\inferrule{ }{\Apply(\KZro~K, \VProd~X~Y) \leadsto \Apply(K, X)} \and
+		\inferrule{ }{\Apply(\KFst~K, \VProd~X~Y) \leadsto \Apply(K, Y)} \and
+		\inferrule{ }{\Apply(\KLet~A~\Env~C~K, V) \leadsto \Eval(C, \Env[A := V], K)} \and
+		\inferrule{ }{\Apply(\KApp_0~\Env~X~K, \Clos~\Env'~N~E) \leadsto \Eval(X, \Env, \KApp_1~\Env'~N~E~K)} \and
+		\inferrule{ }{\Apply(\KApp_1~\Env~N~E~K, V) \leadsto \Eval(E, \Env[N := V], K)}
+	\end{mathpar}
+	\caption{Abstract Machine Transition: No Pointer}
+	\label{fig:apply}
 \end{figure}
 
 \begin{figure}
@@ -208,14 +236,14 @@ that drives Zombie's implementation.
 	\begin{mathpar}
 		\inferrule{\Lookup(P, H) = \KLeft~K \and \Alloc(\VLeft~V, H) = (P', H')}{\Apply(P, V), H \leadsto \Apply(K, P'), H'} \and
 		\inferrule{\Lookup(P, H) = \KRight~K \and \Alloc(\VRight~V, H) = (P', H')}{\Apply(P, V), H \leadsto \Apply(K, P'), H'} \and
-		\inferrule{\Lookup(P, H) = \KCase~\Env~\mathit{LN}~L~\mathit{RN}~R~K \and \Lookup(V, H) = \VLeft~V}{\Apply(P, V), H \leadsto \Eval(L, \Env(\mathit{LN} := V), K), H} \and
-		\inferrule{\Lookup(P, H) = \KCase~\Env~\mathit{LN}~L~\mathit{RN}~R~K \and \Lookup(V, H) = \VRight~V}{\Apply(P, V), H \leadsto \Eval(R, \Env(\mathit{RN} := V), K), H} \and
+		\inferrule{\Lookup(P, H) = \KCase~\Env~\mathit{LN}~L~\mathit{RN}~R~K \and \Lookup(V, H) = \VLeft~V'}{\Apply(P, V), H \leadsto \Eval(L, \Env(\mathit{LN} := V'), K), H} \and
+		\inferrule{\Lookup(P, H) = \KCase~\Env~\mathit{LN}~L~\mathit{RN}~R~K \and \Lookup(V, H) = \VRight~V'}{\Apply(P, V), H \leadsto \Eval(R, \Env(\mathit{RN} := V'), K), H} \and
 		\inferrule{\Lookup(P, H) = \text{KProd0}~\Env~R~K \and \Alloc(\KProd_1~V~\Env~K, H) = (P', H')}{\Apply(P, V), H \leadsto \Apply(K, P'), H'} \and
 		\inferrule{\Lookup(P, H) = \KProd_1~L~K \and \Alloc(\VProd~L~V, H) = (P, H')}{\Apply(P', V), H \leadsto \Apply(K, P'), H'} \and
 		\inferrule{\Lookup(P, H) = \KZro~K \and \Lookup(V, H) = (\VProd~X~Y)}{\Apply(P, V), H \leadsto \Apply(K, X), H'} \and
 		\inferrule{\Lookup(P, H) = \KFst~K \and \Lookup(V, H) = (\VProd~X~Y)}{\Apply(P, V), H \leadsto \Apply(K, Y), H'} \and
 		\inferrule{\Lookup(P, H) = \KLet~A~\Env~C~K}{\Apply(P, V), H \leadsto \Eval(C, \Env[A := V], K), H'} \and
-		\inferrule{\Lookup(P, H) = \KApp_0~\Env~X~K \and \Lookup(V, H) = (\Clos~\Env'~N~E, H) \and \Alloc(\KApp_1~\Env'~N~E~K, H) = (P', H')}{\Apply(P, V), H \leadsto \Eval(X, \Env, P'), H'} \and
+		\inferrule{\Lookup(P, H) = \KApp_0~\Env~X~K \and \Lookup(V, H) = \Clos~\Env'~N~E \and \Alloc(\KApp_1~\Env'~N~E~K, H) = (P', H')}{\Apply(P, V), H \leadsto \Eval(X, \Env, P'), H'} \and
 		\inferrule{\Lookup(P, H) = \KApp_1~\Env~N~E~K}{\Apply(P, V), H \leadsto \Eval(E, \Env[N := V], K), H'}
 	\end{mathpar}
 	\caption{Abstract Machine Transition: Apply}
