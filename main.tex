@@ -226,15 +226,7 @@ Double O(1)
 	\subsubsection{Loop Unrolling}
 	To avoid frequent creation of node object, and their insertion to the tock tree, multiple state transition is packed into one.
 	\subsection{Bit counting}
-	\section{Formal Guarantee}
-	\subsection{Safety}
-	Evaluating under replay semantic give same result as under normal semantic
-	\subsection{Liveness}
-	Evaluating will eventually produce a value
-	
-	Decreasing on lexicalgraphic ordering on the replay stack do work
-	\subsection{Performance}
-	memory consumption is linear to amount of object with O(1) access cost
+	\input{proof}
 	\section{Evaluation}
 	%\input{intro}
 	%\input{uncomputation}
