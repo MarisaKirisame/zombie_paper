@@ -12,10 +12,16 @@ Like wise, we can define equality on continuation, and on state. Additionally, w
 Alongside query\_ghost, is the idea of ghost\_stepping \todo{this name suck}. Just like the state transition on CEKR, ghost\_stepping is also a transition on State, TockTree tuple. However, unlike the classical state transition, ghost\_stepping use query\_ghost in place of query, which retrieve the exact node, even if the node is evicted. ghost\_stepping is unimplementable, but just like our formalization of Tock Tree and query\_ghost, it is purely for formalization purpose. As ghost\_step does not need any replay, it does not have the replay continuation. ghost\_step serve as a bridge between CEK and CEKR, connecting the two semantic. Once this is completed, we can only talk about correspondence between ghost\_step and normal step, inside CEKR, without mentioning the CEK machine at all.
 
 Lemma: CEK stepping is deterministic.
+
 proof: trivial.
 
 Lemma: Ghost stepping is deterministic.
+
 proof: trivial. note that this require the tock tree being deterministic itself. write down this requirement in the right place.
+
+Lemma: Ghost stepping is congruent under eqmodev.
+
+proof: ghost stepping do not read from eviction status.
 
 \subsubsection{Well Foundness}
 A tock tree T is well-founded \todo{is this the right word?} if:
@@ -23,7 +29,7 @@ A tock tree T is well-founded \todo{is this the right word?} if:
 	\item The left most node exist and is not be evicted. (root-keeping)
 	\item Forall node N inserted at tock T, N only refer to tock < T. (tock-ordering)
 	\item Forall node pair L R (R come right after L in the tock tree), if (L.state, T) ghost\_step to (X, XT), X = R.state and T eqmodev XT. (replay-correct)
-	\item Additionally, a (state, tock tree) pair is well-founded if the right most node exist, and equal to state. (laststate-correct)
+	\item Additionally, a (state, tock tree) pair is well-founded if state is in the tock tree. (state-recorded)
 \end{enumerate}
 
 Lemma: ghost stepping preserve well-foundedness.
@@ -31,19 +37,31 @@ proof:
 \begin{enumerate}
 	\item root-keeping is maintained by the tock tree implementation and is a requirement.
 	\item tock-ordering is maintained - check each insert.
-	\item replay-correct is maintained: there are two cases here. if the pair already exist, then adding a new rightmost node (it must be rightmost due to laststate-correct) is irrelevant. otherwise it is the last pair, and we just did the corresponding ghost-step. It is maintain because ghost-stepping is deterministic.
-	\item laststate-correct is maintained: check each ghoststep case, and they should all insert the last state.
+	\item replay-correct is maintained: the transit-from state must be on the tock tree due to state-recorded. If it is not the rightmost case, due to replay-correct we had repeatedly inserted a node. Since ghost-stepping is congruent under eqmodev replay-correct is maintained. If it is the rightmost state, a new node is inserted. All pair except the last pair is irrelevant to the insertion, because due to tock-ordering they cannot refer to it. For the last pair, ghost-step must reach the same state due to determinism in ghost-stepping.
+	\item state-recorded is maintained: we just inserted said state.
 \end{enumerate}
 
 Lemma: under well-foundness, CEK-step and ghost-stepping preserve equivalence.
+
 Formally: given CEK-step X, CEKR state Y, if (X, H) = (Y, T) and T is well-founded, (X, H) $\leadsto$ (X', H'), (Y, T) $\leadsto$ (Y', T'), (X', H') = (Y', T')
+
 proof: wellfoundness ensure we do not write to old state and replace old node with other values. other part of proof is trivial.
 
-Evaluating under replay semantic give same result as under normal semantic
+Lemma: stepping without changing rk is the same as ghost-stepping
 
-Evaluating will eventually produce a value
+proof: trivial
 
-Decreasing on lexicalgraphic ordering on the replay stack do work
+Lemma: if stepping add to rk, the moment it change back, is the same as single ghost-stepping
+
+proof: due to well-foundness the cell RApply recieve must be the same as the same cell on the tock tree but inaccessible. Note that the stepping made here cannot add new node as it is bounded by the tock on the replay continuation, which is on the tock tree.
+
+Lemma: it must change back
+
+proof: by lexicalgraphical ordering on rk and on state
+
+Theorem: X, rk, tt step-star Y, rk, tt' -> X tt ghost-step-star Y, tt'', with tt' eqmodev tt'
+
+proof: the step-star can be decomposed into sequence of no-rk-change step, or a push, with multiple step, and finally a pop. either case is covered by a lemma above.
 
 \subsection{Performance}
 memory consumption is linear to amount of object with O(1) access cost
