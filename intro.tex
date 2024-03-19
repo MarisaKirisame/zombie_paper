@@ -2,12 +2,12 @@
 \section{Intro}
 Program consume memory. Program might use too much memory:
 \begin{itemize}
-	\item The input might be huge. Editing a file require loading the whole file into memory; Autocomplete load and parse the whole codebase; Image editors will keep multiple replica of similar images.
+	\item The input might be huge. Editing a file require loading the whole file into memory; Autocomplete load and parse the whole codebase; Image editors will keep multiple layers of an image, each consuming as much space as the raw image itself.
 	\item Exploding intermediate state: Model checker and Chess bot search through a huge state space, Compiler and Interprocedural analysis expand the AST, Deep Learning/Backpropagation create and keep intermediate value. Additionally, interactive/incrmental application such as Juypter Notebook, Undo/Redo Stack, Time travelling debugger, program slicing, also keep intermediate state around to revert back to an older state when needed.
 	\item Low memory limit. wasm have a memory limit of 2GB, embedded device or poor people may have device with lower ram. A personal computer might be running multiple programs, which must contend for a fixed memory limit. GPU and other accelerator use their own separate memory and usually is of smaller capacity then main memory.
 \end{itemize}
 
-Even when there is enough memory, it is still beneficial to use less memory. Operating System use memory for file cache, the program may have software cache, garbage collector fire less often give more free space, and extra space could be used to increase load or to execute other process.
+Even when there is enough memory, it is still beneficial to use less memory, as multi-tenancy is ubiquitous. Operating System use memory for file cache, the program may have software cache, garbage collector fire less often give more free space, and extra space could be used to increase load or to execute other process.
 
 One common-bought up solution to the memory problem is - to just buy more memory. However this only work to certain extents. Accelerators and wasm have a fixed memory limit and memory-limited algorithm can improve space consumption asymptotically, a feat that merely hardware improvement cannot catch up to. \todo{should i talk about banker paradox here?}
 
@@ -34,11 +34,3 @@ While the above asymptotic guarantee seems very strong, it is actually achievabl
 \end{itemize}
 
 \pavel I hate how we talk bad about a naive approach later, but explain our core idea here. I think we should not have naive approach at all, or have it before core idea. Also - 1.3 and 1.4 is new. What other thing do I need for the intro?
-
-\subsection{Contribution}
-Our contribution is as follow:
-\begin{itemize}
-	\item A monadic API, with a naive implementation and why it doesnt work
-	\item A implementation without problem above
-	\item Formulation and proof of important properties
-\end{itemize}

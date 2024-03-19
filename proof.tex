@@ -9,6 +9,8 @@ With query\_ghost, we can compare values between CEK and CEKR. More specifically
 
 Like wise, we can define equality on continuation, and on state. Additionally, we define 'equality modulo eviction' between two Tock Tree, to be that the two Tock Tree contain the same node, but they might be under different eviction status. Formally speaking, forall Tock, the two Tock Tree must return two equal node, but the eviction bit might differ.
 
+\subsubsection{Ghost Stepping}
+
 Alongside query\_ghost, is the idea of ghost\_stepping \todo{this name suck}. Just like the state transition on CEKR, ghost\_stepping is also a transition on State, TockTree tuple. However, unlike the classical state transition, ghost\_stepping use query\_ghost in place of query, which retrieve the exact node, even if the node is evicted. ghost\_stepping is unimplementable, but just like our formalization of Tock Tree and query\_ghost, it is purely for formalization purpose. As ghost\_step does not need any replay, it does not have the replay continuation. ghost\_step serve as a bridge between CEK and CEKR, connecting the two semantic. Once this is completed, we can only talk about correspondence between ghost\_step and normal step, inside CEKR, without mentioning the CEK machine at all.
 
 Lemma: CEK stepping is deterministic.
@@ -41,11 +43,14 @@ proof:
 	\item state-recorded is maintained: we just inserted said state.
 \end{enumerate}
 
-Lemma: under well-foundness, CEK-step and ghost-stepping preserve equivalence.
+\subsubsection{Main Theorem}
+Theorem: under well-foundness, CEK-step and ghost-stepping preserve equivalence.
 
 Formally: given CEK-step X, CEKR state Y, if (X, H) = (Y, T) and T is well-founded, (X, H) $\leadsto$ (X', H'), (Y, T) $\leadsto$ (Y', T'), (X', H') = (Y', T')
 
 proof: wellfoundness ensure we do not write to old state and replace old node with other values. other part of proof is trivial.
+
+The above theorem establish a connection between the CEK machine and the CEKR machine, by ignoring the replaying aspect of the CEKR machine, and only using it as if all values are stored in the tock tree (even though some nodes might already be evicted!). We will next connect ghost-stepping with regular stepping in the CEKR machine.
 
 Lemma: stepping without changing rk is the same as ghost-stepping
 
@@ -64,4 +69,7 @@ Theorem: X, rk, tt step-star Y, rk, tt' -> X tt ghost-step-star Y, tt'', with tt
 proof: the step-star can be decomposed into sequence of no-rk-change step, or a push, with multiple step, and finally a pop. either case is covered by a lemma above.
 
 \subsection{Performance}
+\subsubsection{Pebble Game}
+\subsubsection{Translation to pebble game}
+\subsubsection{Theorem}
 memory consumption is linear to amount of object with O(1) access cost

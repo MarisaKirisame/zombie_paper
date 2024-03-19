@@ -32,7 +32,6 @@ In order to make this operation efficient, the tock tree is organized as a binar
 	\caption{lookup failure return the latest earlier node}
 \end{figure}
 
-
 \subsection{Happy path}
 Every state transition and pointer lookup is then converted into node insertion and node lookup into this data structure. After we had completed a transition, we construct the node, packing the allocated cells during the transition and the transit-to state, inserting the node onto the tock tree.
 
