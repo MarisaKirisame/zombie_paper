@@ -1,11 +1,14 @@
 \section{Formal Guarantee}
 \subsection{Correctness}
+\todo{the cek in this section does not use heap at all! in fact I dont think we really need the heap version. I think we should rename the cek with pointer into cekm, and explain it only for introductory purpose (or not at all).}
 \subsubsection{Tock Tree Setup}
 In order to reason about the CEKR machine, we needed to reason about nodes in the tock tree, even if such node is evicted.
 
 While we can reify the tock tree insertions into a list, forming into a trace semantic and reasoning on top of the list, it is easier to allow querying the tock tree for evicted data. In our formalization, we assume that the tock tree does not really evict; However, each node is now paired with a boolean bit, indicating whether it had been evicted or not. We will then have a function query\_ghost : (TockTree, Tock) -> (Bool, Node) that return the Node, along with a boolean indicating whether the node is present.
 
-With query\_ghost, we can compare values between CEK and CEKR. More specifically, a value X under Heap H in CEK is equal to a value Y under Tock T in CEKR, if the cell pointed to by X (via lookup) and pointed to by Y (via query\_ghost) is equal. This is a recursive definition as cells might contain more values.
+\subsubsection{CEK/CEKR connection}
+With query\_ghost, we can connect value from the CEKR machine to the CEK machine. More specifically, we can now define a Sem(standing for semantic) function, that convert a CEKR-value to a CEK-value under a given tock tree. The function work by recursively calling query\_ghost.
+
 
 Like wise, we can define equality on continuation, and on state. Additionally, we define 'equality modulo eviction' between two Tock Tree, to be that the two Tock Tree contain the same node, but they might be under different eviction status. Formally speaking, forall Tock, the two Tock Tree must return two equal node, but the eviction bit might differ.
 

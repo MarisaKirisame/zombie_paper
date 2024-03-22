@@ -11,7 +11,6 @@ In other words, the way Zombie works is that the heap will store only some of th
 Because a value can be recomputed from \emph{any} earlier CEK machine state, it will also turn out to be possible to store relatively few machine states. Therefore, overall memory usage---for the stored intermediate values and the stored machine states---can be kept low. In Zombie, we can store asymptotically fewer machine states than intermediate values, allowing us to asymptotically reduce memory usage.
 
 \subsection{Tock Tree}
-
 In Zombie, the heap is implemented by a runtime data structure called the tock tree. The tock tree maps tocks to the cells allocated by that step; in other words, the tock tree implements the mapping between tocks and their actual memory locations. Because values can be evicted to save memory, however, not all tocks have a mapping in the tock tree. Instead, every tock that \emph{is} present in the tock tree will also store its machine state. To recompute an evicted value at some tock $i$, the tock tree will find the largest machine state at tock $j < i$ and replay from that tock to tock $i$.
 
 Each node in the Tock Tree stores both a memory cell and a machine state. Specifically, consider the execution of the CEK machine from step $t$. In step $t + 1$ it allocates a cell; it then performs a computation in step $t + 2$. So the node at tock $t$ contains both the cell allocated at step $t + 1$ as well as the machine state \emph{afterwards}, at step $t + 2$. A transition might not alloc any new cells, in such a case the Node only store a machine state any no memory cell. To be more specific, if the node represent the execution of the CEK machine at step $t$, it will only contain the CEK machine state at step $t + 1$.
@@ -32,24 +31,42 @@ In order to make this operation efficient, the tock tree is organized as a binar
 	\caption{lookup failure return the latest earlier node}
 \end{figure}
 
-\subsection{Happy path}
-Every state transition and pointer lookup is then converted into node insertion and node lookup into this data structure. After we had completed a transition, we construct the node, packing the allocated cells during the transition and the transit-to state, inserting the node onto the tock tree.
-
-Originally, transition might require pointers lookup. Such lookup is translated to a query to the tock tree with the given node. Ideally speaking, the returned node contain the cell that correspond to the given tock. We can then convert the tock into the corresponding cell and continue execution. Note that we still need the tock tree to be lenient in this case, as the key of the node denote the beginning of the transition, not the cell itself.
-\subsection{Sad Path}
-Sadly, as we had removed nodes from the Tock Tree, we might not be able to retrieve a cell directly, and might need to recompute it - the point of the paper.
-
-To recompute a value at tock t, the following steps are taken:
+\subsection{Replay Continuation}
+In order to replay for a cell at a tock t, we need to store
 \begin{enumerate}
-	\item Suspend the current execution into another kind of continuation, Replay Continuation (RK).
-	\item Execute the transit-to state from the lookuped node in the tock tree, until tock reach t.
-	\item Resume RK with the cell created at tock t.
+	\item the tock t that we replay to, so we can stop once the value correspond to t is found
+	\item the original state before replaying, to resume execution at that poin
+\end{enumerate} , so we can stop once t is found, and the original state before replaying, so we can resume execution at that point. 
+This is essentially a continuation, which we called the replay continuation (RK).
+
+Note that it is different from the normal continuation in the following way:
+\begin{enumerate}
+	\item continuation is a expr with a hole of type expr, while replay continuation is a state with a hole of type cell
+	\item there are way less replay continuation type then continuation: this is because only the state that lookup a cell need a replay continuation; state that does not do not need replay, and so do not need replay continuation.
 \end{enumerate}
-Note that the Replay Continuation operate at a more fine-grain granularity then that of the normal continuation. This is because a single transit step might do multiple lookup, but RK need to correspond to a lookup failure in such a transition. Otherwise the requested value might be immediately uncomputed again, and the whole process enter an infinite loop.
 
-After the above 3 steps, the execution shall continue as if no replay had happens at all, and lookup return a node with the cell we wanted. In other words, the happy path and the sad path should converge.
+Note that, during the replaying process, more lookup might be issued, and those lookup might need more replay - replay is recursive. Just like the classical continuation at the CEK machine, the Replay Continuation need to be recursive, and form a stack as well.
 
-During the replaying process, more lookup might be issued, and those lookup might need more replay - replay is recursive. Just like the classical continuation at the CEK machine, the Replay Continuation need to be recursive, and form a stack as well.
+\subsection{CEKR Machine}
+With the idea of tock, tock tree, and the replay continuation, we can now define an abstract machine, the CEKR Machine, that can uncompute and replay values.
+
+The CEKR Machine consist of 6 parts:
+\begin{enumerate}
+	\item \textcolor{blue}{C}ontrol, the expression currently being evaluated.
+	\item \textcolor{blue}{E}nvironment, a map from the free variables of the Control to their values.
+	\item \textcolor{blue}{K}ontinuation, which is to be invoked with the value the Control evaluates to.
+	\item \textcolor{blue}{R}eplay, the replay continuation.
+	\item The current tock
+	\item The tock tree
+\end{enumerate}
+And now have 3 modes: in addition to the eval and apply mode, there is a 'return' mode that hold only a cell.
+
+Alongside the 3 modes come 3 kinds of transition:
+\begin{enumerate}
+	\item The happy path: the lookup in the CEK transition rule, is converted into the query transition rule. If the query is successful (the return tock is the queried tock), we enter the happy path, where the transition closely mirror that of the CEK-transition. We collect the cell allocated during transition, alongside the transit-to state, into a node, and insert it into the tock tree. We then transit-to the transit-to state specified by the CEK machine. However, if the tock matching the return continuation is allocated, the machine enter a returning mode instead.
+	\item The sad path: on a query that failed(did not get the node matching the tock in return), replay is needed. To replay a value, we push the old state alongside the request tock onto the replay continuation, and transit to the state in the node.
+	\item The return path: once a cell matching the top of the replay continuation is found,from the return mode, pop from the replay continuation to resume the state. It will then behave like a normal transition, as we obtained a cell by replaying, and no longer need to query the tock tree. \todo{bad wording dont know how to fix}
+\end{enumerate}
 
 \subsection{Reified Continuation}
 We treat continuations also as values, and label them with tock/put them in the tock tree, just like any other values. This allow us to also uncompute continuation as well.
