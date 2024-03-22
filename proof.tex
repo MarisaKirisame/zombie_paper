@@ -73,6 +73,20 @@ proof: the step-star can be decomposed into sequence of no-rk-change step, or a 
 
 \subsection{Performance}
 \subsubsection{Pebble Game}
+
+
+Let $G=(V,E)$ be a directed acyclic graph with maximum in-degree of $k$, where $V$ is a set of vertices and $E$ is a set of ordered pairs $(v_1, v_2)$ of vertices.
+
+For each $v\in V$, we can
+\begin{itemize}
+	\item place a pebble on it if $\forall u\in V$ that $(u, v)\in E$, $u$ has a pebble, which means all predecessors of $v$ have pebbles.
+	\item remove the pebble on it if $v$ already has a pebble.
+\end{itemize}
+
+The goal is to place a pebble on a specific vertex and minimize the number of pebbles simultaneously on the graph during the steps.
+
+
+
 \subsubsection{Translation to pebble game}
 \subsubsection{Theorem}
 memory consumption is linear to amount of object with O(1) access cost
