@@ -8,7 +8,6 @@
 \acmYear{2018}
 \acmDOI{XXXXXXX.XXXXXXX}
 
-
 \acmJournal{JACM}
 \acmVolume{37}
 \acmNumber{4}
@@ -86,12 +85,29 @@
 \renewcommand{\shortauthors}{Kirisame et al.}
 
 \begin{abstract}
-	Program execution need memory. Program may run out of memory for multiple reasons: big dataset, exploding intermediate state, the machine have less memory than others, etc. When this happens, the program either get killed, or the operating system swaps, significantly degrading the performance.
-	We propose a technique, uncomputation, that allow the program to continue running gracefully even after breaching the memory limit, without significant performance degradation.
-	Uncomputation work by turning computed values back into thunk, and upon re-requesting the thunk, computing and storing them back.
-	A naive implementation of uncomputation will face multiple problems. Among them, the most crucial and the most challenging one is that of breadcrumb. After a value is uncomputed, it's memory can be released but some memory, breadcrumb, is needed, so we can recompute the value back.
-	Ironically, in a applicative language, due to boxing all values are small. This mean uncomputation, implemented naively, will only consume more memory, defeating the purpose.
-	We present a runtime system, implemented as a library, that is absolved of the above breadcrumb problem.
+  Programs need memory to execute,
+    and when there isn't enough memory available,
+    programs can swap, crash, or even get killed by the operating system.
+  To fix this, we propose \name,
+    a purely-function programming language implementation
+    that allows programs to continue running
+    (albeit much slower)
+    while using much less memory than necessary
+    to store all of the program's heap-accessible values.
+  \name works by replacing pointers with abstract ``tocks'',
+    each of which refers to a value via the point in time
+    when it was allocated.
+  This allows \name to evict computed values from memory
+    and recompute them as necessary
+    by rewinding and replaying program execution.
+  \name's runtime stores a limited amount of metadata,
+    much smaller than the total number of program steps,
+    allowing it to shrink live memory dramatically.
+  Thanks to a combination of optimizations
+    and a powerful cache heuristic,
+    \name is able to achieve memory reductions
+    of up to \todo{XXX$\times$}
+    while incurring slowdowns of \todo{XXX$\times$}.
 \end{abstract}
 
 %%
