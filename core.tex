@@ -35,7 +35,7 @@ In our variation of the CEK machine, we split the evaluation phase
 from the invocation of the continuation, resulting in a machine state
 that looks like this:
 \[
-\text{State} \operatorname{::=} \Eval~E~\Env~K \mid \Apply~K~V
+\text{State} \operatorname{::=} \Eval~C~\Env~K \mid \Apply~K~V
 \]
 In other words, our CEK machine can be in an $\Eval$ or an $\Apply$
 state; the $\Eval$ stores the classic control, environment, and
