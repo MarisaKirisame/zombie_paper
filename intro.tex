@@ -1,36 +1,48 @@
-\subsection{Motivation(1.5pg)}
-\section{Intro}
-Program consume memory. Program might use too much memory:
+\subsection{Motivation}
+Program execution consume both space and time. While there are tons of research focused on reducing the time spent running a program, memory usage reduction had been consistently underappreciated.
+
+Yet, saving memory is still an important topic worth studying:
 \begin{itemize}
-	\item The input might be huge. Editing a file require loading the whole file into memory; Autocomplete load and parse the whole codebase; Image editors will keep multiple layers of an image, each consuming as much space as the raw image itself.
-	\item Exploding intermediate state: Model checker and Chess bot search through a huge state space, Compiler and Interprocedural analysis expand the AST, Deep Learning/Backpropagation create and keep intermediate value. Additionally, interactive/incrmental application such as Juypter Notebook, Undo/Redo Stack, Time travelling debugger, program slicing, also keep intermediate state around to revert back to an older state when needed.
-	\item Low memory limit. wasm have a memory limit of 2GB, embedded device or poor people may have device with lower ram. A personal computer might be running multiple programs, which must contend for a fixed memory limit. GPU and other accelerator use their own separate memory and usually is of smaller capacity then main memory.
+	\item Multi-tenancy. A end-user laptop execute multiple programs concurrently. As an example, a typical programmer might open an IDE to edit and compile code, Zoom for remote meeting, and additionally a browser with dozens of tabs open to lookup information on the internet. Among them, the worst is the web browser, as each tab is it's own separate process, with a renderer, a rule engine, along side a JavaScript runtime. All software above consume a decent amount of ram, and contend between themselves for memory.
+	\item Huge input. While a typical image might have a resolution of around 1000 x 1000, large images might reach a size 100 to 1000 time larger than that. Images editors and viewers typically thrash or oom upon processing images of such size. Similarly, text editors typically process text of < 1MB, and fail on logs or other large text file reaching GBs. Likewise IDEs will parse and analyze the source code of a project, then stored the analyzed results for auto completion. Upon working on huge project such IDEs will crash.
+	\item Intermediate state. A modern computer can read and write memory at a speed of GB per seconds. Without memory reclamation technique such as garbage collection, memory will run out at a matter of seconds. However, some applications is essentially out of reach from garbage collection, and must keep most if not all intermediate states around. These applications include time travelling debugger, jupyter notebook, reverse mode automatic differentiation for deep learning, incremental computation/hash consing, and algorithm that use search, such as model checker and chess bot.
+	\item Low memory limit. Wasm have a memory limit of 2GB, and embedded device or poor people may have device with lower ram. GPU and other accelerator use their own separate memory and usually is of smaller capacity then main memory.
 \end{itemize}
 
-Even when there is enough memory, it is still beneficial to use less memory, as multi-tenancy is ubiquitous. Operating System use memory for file cache, the program may have software cache, garbage collector fire less often give more free space, and extra space could be used to increase load or to execute other process.
+A typical and generic solution to reduce memory consumption is by uncomputation. Uncomputation trade space for time, by tagging values with the metadata that created it(thunk), and when memory is low, deallocate values which might be used later on, recomputing them back with the thunk when the value is needed again.
 
-One common-bought up solution to the memory problem is - to just buy more memory. However this only work to certain extents. Accelerators and wasm have a fixed memory limit and memory-limited algorithm can improve space consumption asymptotically, a feat that merely hardware improvement cannot catch up to. \todo{should i talk about banker paradox here?}
+Another generic solution is swapping, where upon low memory, pages are swapped to disk and swapped back when needed again. While swapping had been implemented for basically all operating systems, it is an especially bad solution for functional and object-oriented languages, as those languages allocate and deallocate lots of small object, yet swapping work on the granularity of pages, unable to separate out the hot objects, that had been recently accessed from the code objects, that had not been accessed.
 
-However, the only generic technique for reducing memory consumption, swapping, come with great drawback. Swapping move a chunk of data from main memory onto disk, and upon re-requesting it, move the data from disk back into main memory. It degrade performance significantly as disk is far slower then CPU and main memory, and it is especially bad for functional programs as most values is functional programs are boxed, they typically have less cache locality, exacerbated by swapping which operate on pages granularity.
+Typically, uncomputation is implemented in an ad-hoc, case by case basis. When a software consume more memory than desired, it's programmer can (0) look at the program, (1) decide which part is using excessive memory, then (2) add custom data type to record the thunk, alongside the code to replace it (3) implement a cache eviction policy to decide what data to evict(uncompute). Another solution is to analyze the algorithm carefully, replacing the algorithm with a specialized version with recomputation in mind, see gradient checkpointing/iterative deepinging depth first search/island algorithm.
 
-Facing the lack of a generic solution, developers resort to ad-hoc, case-by-case solution, such as cache size tuning, reducing heap size, creating algorithm that swap and uncompute. Such solution complicate the system, and as the developer is likely not an expert on memory-constrained solution, suboptimal design/implementation is often made.
+Needless to say, this process is extremely cumbersome, taking precious developers time away from more critical task such as optimizing cpu usage or implementing new features, so a generic, automatic approach is needed to reduce memory consumption.
 
-We propose uncomputation, a technique to reduce memory consumption for arbitrary purely functional programs. When needed, uncomputation select some values in the object graph according to cache policy, reverting it back into thunk, releasing memory until it is needed again, in which case it will recompute said values and replacing the thunk with the values. We provided a monadic API behind uncomputation, such that mere mechnical translation is needed to apply our work. The monadic API also grant compatibility, saving developers headache from learning and converting between a full-fledge language.
+\subsection{Failed Attempt}
+On first glance, uncomputation is easy, as it's cousin, lazy evaluation, is heavily studied. In lazy computation, object might be represented as thunks, which, when needed, is then computed, and the thunk is replaced by the value. A solution to uncomputation is to modify thunk, so that, upon computing, the old function is still kept. This allow the thunk to uncompute as if it had never been recomputed.
 
-\subsection{Guarantee(0.5pg)}
-There are multiple guarantees our approach give.
+\begin{mathpar}
+	$Lazy Evaluation: type 'a lazy = MkLazy of ('a, unit -> 'a) either ref \\
+	Uncomputation: type 'a uncompute = MkUncompute of 'a option ref * (unit -> 'a)$
+\end{mathpar}
 
-Correctness guarantee: uncomputing will not effect the final result (preservation), and will not be in an infinite loop (progress). Essentially, uncomputing is transparent: the semantic is that of the same as if none happens at all.
+Just like lazy evaluation, we can then uniformally lift all values on top of our modified value type, inserting code that force weak head normal form upon data access, and have some cache policy to decide what to uncompute, which merely rewrite the reference back into the empty optional value.
 
-Asymptotic guarantee: O(1) access time for all in-memory objects, and O(1) space for each in-memory objects. In particular, this imply that we are not using any space for uncomputed objects.
+However, there are multiple problems with this approach:
+\begin{enumerate}
+	\item size measurement. We want to gather statistics to decide what values to evict, and one of the most important statistics is the memory a object consume. However, the heap form a complex object graph, and fast cardinality estimation is highly complex.
+	\item dopple ganger. The translation will lift a list into nested uncompute. Now suppose variable X hold a list, while variable Y hold a sublist of X, sharing the same representation\todo{bad wording dont know how to fix}. When X is uncomputed and recomputed, the corresponding Y part will be duplicated, so there will be two representation of Y in memory. In the extreme case, such duplication can force the program to take exponentially more memory. 
+	\item bread crumb. A thunk capture other value as free variable, which contain a thunk part, capturing more value. This recursive process capture all value that the current value transitively compute on. Since we still need memory to store the thunk itself, and since a thunk is typically larger then an object, anything we gained on uncomputation, will be offset by the metadata.
+\end{enumerate}
 
-\subsection{Insight}
-While the above asymptotic guarantee seems very strong, it is actually achievable via:
+While the above three problems seems difficult, we can observe they are all but mere manifestation of recursiveness. In particular, size measurement and dopple ganger deal with recursive objects, and bread crumb deal with recursive thunk. This indicate that a solution that handle recursiveness well naturally solve the three problems at once.
 
-\begin{itemize}
-	\item Record undelimited context instead of closures. Undelimited context, when run long enough, will produce everything later.
-	\item Assigning a monotonically increasing number, tock, to all zombie creation, and to all call/return/tailcall. This give each zombie a global unique id, so repeat creation of zombie do not create duplicate objects. It also give an ordering so we can find earlier context to replay.
-	\item A data structure, tock tree. The tock tree is a binary search tree, that, on lookup failure, instead of failing (via exception/nullptr/optional), will return the closest match: the value associated with the largest key less then/equal to the input key. This design allow removal of arbitrary context, except the earliest one, as removing an earlier context merely cause lookup to return a further context, requiring more replay.
-\end{itemize}
+\subsection{A recursive Solution}
+To combat recursiveness we take heavy inspiration from Abstracting Abstract Machine (AAM). AAM lift abstract interpretation onto programming languages with arbitrary feature. The critical problem there is likewise recursiveness, as a naive lifting might allow the lattice infinite merge, causing the analysis to non-terminate. AAM propose to use an abstract machine that abstract over pointers, allocations and lookups to manage recursiveness.
 
-\pavel I hate how we talk bad about a naive approach later, but explain our core idea here. I think we should not have naive approach at all, or have it before core idea. Also - 1.3 and 1.4 is new. What other thing do I need for the intro?
+Likewise, the three recursiveness problem listed above can be handled by a similar manner. We started from a purely functional language, specifying it's semantic with the CEK machine. We can then abstract over pointers/allocations/lookups similarly.
+
+Most importantly, our key insight is that by a careful handling of our core data structure, the tock tree, which will be explained later, we can remove a value, alongside the metadata(thunk) on that value, yet still recompute it later. This solve the breadcrumb problem which render the naive apporach unsalvageable.
+
+Alongside our solution is proof that it is both correct and efficient. Our correctness proof state that uncomputing will not effect the final result(preservation), and will not infinite loop(progress). What get computed by the raw, uncompute-free semantic, no matter what we evicted. Our efficiency proof state that if our memory consumption is O(n), where n is the amount of live objects: objects that take O(1) time to force into weak head normal form. In particular, this imply asymptotically we use no space to store any evicted object, yet we somehow can access the metadata that recompute them!
+
+We had implemented our solution, alongside a eviction policy that is both fast to compute, and make better decision over classical eviction policy like LRU, random, and GDSF.
