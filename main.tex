@@ -242,31 +242,7 @@ Summarize the meeting into key step
 Double O(1)
 	\input{core}
 	\input{un}
-	\section{Implementation}
-	\subsection{Tock Tree}
-	To exploit the temporal/spatial locality, and the 20-80 law of data access (cite?), the tock tree is implemented as a slight modification of a splay tree.
-
-	This design grant frequently-accessed data faster access time. Crucially, consecutive insertion take amortized constant time.
-	
-	The tock tree is then modified such that each node contain an additional parent and child pointer. The pointers form a list, which maintain an sorted representation of the tock tree. On a query, the tock tree do a binary search to find the innermost node, then follow the parent pointer if that node is greater then the key. This process is not recursive: the parent pointer is guaranteed to have a smaller node then the input key, as binary search will yield either the exact value, or the largest value less then the input, or the smallest value greater then the input.
-	\subsection{Picking Uncomputation Candidate}
-	\subsection{Eviction}
-	This allow us to remove any non-leftmost node from the tock tree. After the removal, the query that originally return the removed node, will return the node slightly earlier then that, which we can then replay to regenerate the removed node. In fact, this is the implementation of uncomputation in our system, and any non-leftmost node can be removed, to save memory at any given time.
-	\todo{move to implementation section}
-	
-	Note that the guarantee we prove is independent of our policy that decide which value to uncompute (eviction policy).
-	\subsubsection{Union Find}
-	\subsubsection{The Policy}
-	\subsubsection{GDSF}
-	\subsection{Language Implementation}
-	For implementation simplicity and interoperability with other programs, zombie is implemented as a C++ library, and the Cells are ref-counted. Our evaluation compiles the program from the applicative programming language formalized above(give name), to C++ code.
-	\subsection{Optimization}
-	\subsubsection{Fast access path}
-	Querying the tock tree for every value is slow, as it requires multiple pointer traversal.
-	To combat this, each Value is a Tock paired with a weak reference, serving as a cache, to the Cell. When reading the value, if the weak reference is ok, the value is return immediately. Otherwise the default path is executed, and the weak reference is updated to point to the new Result.
-	\subsubsection{Loop Unrolling}
-	To avoid frequent creation of node object, and their insertion to the tock tree, multiple state transition is packed into one.
-	\subsection{Bit counting}
+	\input{implementation}
 	\input{proof}
 	\section{Evaluation}
 	%\input{intro}
