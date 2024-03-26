@@ -1,20 +1,113 @@
+% \section{Formal Guarantee}
+% \subsection{Correctness}
+% \todo{the cek in this section does not use heap at all! in fact I dont think we really need the heap version. I think we should rename the cek with pointer into cekm, and explain it only for introductory purpose (or not at all).}
+% \subsubsection{Tock Tree Setup}
+% In order to reason about the CEKR machine, we needed to reason about nodes in the tock tree, even if such node is evicted.
+
+% While we can reify the tock tree insertions into a list, forming into a trace semantic and reasoning on top of the list, it is easier to allow querying the tock tree for evicted data. In our formalization, we assume that the tock tree does not really evict; However, each node is now paired with a boolean bit, indicating whether it had been evicted or not. We will then have a function query\_ghost : (TockTree, Tock) -> (Bool, Node) that return the Node, along with a boolean indicating whether the node is present.
+
+% \subsubsection{CEK/CEKR connection}
+% With query\_ghost, we can connect value from the CEKR machine to the CEK machine. More specifically, we can now define a Sem(standing for semantic) function, that convert a CEKR-value to a CEK-value under a given tock tree. The function work by recursively calling query\_ghost.
+
+
+% Like wise, we can define equality on continuation, and on state. Additionally, we define 'equality modulo eviction' between two Tock Tree, to be that the two Tock Tree contain the same node, but they might be under different eviction status. Formally speaking, forall Tock, the two Tock Tree must return two equal node, but the eviction bit might differ.
+
+% \subsubsection{Ghost Stepping}
+
+% Alongside query\_ghost, is the idea of ghost\_stepping \todo{this name suck}. Just like the state transition on CEKR, ghost\_stepping is also a transition on State, TockTree tuple. However, unlike the classical state transition, ghost\_stepping use query\_ghost in place of query, which retrieve the exact node, even if the node is evicted. ghost\_stepping is unimplementable, but just like our formalization of Tock Tree and query\_ghost, it is purely for formalization purpose. As ghost\_step does not need any replay, it does not have the replay continuation. ghost\_step serve as a bridge between CEK and CEKR, connecting the two semantic. Once this is completed, we can only talk about correspondence between ghost\_step and normal step, inside CEKR, without mentioning the CEK machine at all.
+
+% Lemma: CEK stepping is deterministic.
+
+% proof: trivial.
+
+% Lemma: Ghost stepping is deterministic.
+
+% proof: trivial. note that this require the tock tree being deterministic itself. write down this requirement in the right place.
+
+% Lemma: Ghost stepping is congruent under eqmodev.
+
+% proof: ghost stepping do not read from eviction status.
+
+% \subsubsection{Well Foundness}
+% A tock tree T is well-founded \todo{is this the right word?} if:
+% \begin{enumerate}
+% 	\item The left most node exist and is not be evicted. (root-keeping)
+% 	\item Forall node N inserted at tock T, N only refer to tock < T. (tock-ordering)
+% 	\item Forall node pair L R (R come right after L in the tock tree), if (L.state, T) ghost\_step to (X, XT), X = R.state and T eqmodev XT. (replay-correct)
+% 	\item Additionally, a (state, tock tree) pair is well-founded if state is in the tock tree. (state-recorded)
+% \end{enumerate}
+
+% Lemma: ghost stepping preserve well-foundedness.
+% proof:
+% \begin{enumerate}
+% 	\item root-keeping is maintained by the tock tree implementation and is a requirement.
+% 	\item tock-ordering is maintained - check each insert.
+% 	\item replay-correct is maintained: the transit-from state must be on the tock tree due to state-recorded. If it is not the rightmost case, due to replay-correct we had repeatedly inserted a node. Since ghost-stepping is congruent under eqmodev replay-correct is maintained. If it is the rightmost state, a new node is inserted. All pair except the last pair is irrelevant to the insertion, because due to tock-ordering they cannot refer to it. For the last pair, ghost-step must reach the same state due to determinism in ghost-stepping.
+% 	\item state-recorded is maintained: we just inserted said state.
+% \end{enumerate}
+
+% \subsubsection{Main Theorem}
+% Theorem: under well-foundness, CEK-step and ghost-stepping preserve equivalence.
+
+% Formally: given CEK-step X, CEKR state Y, if (X, H) = (Y, T) and T is well-founded, (X, H) $\leadsto$ (X', H'), (Y, T) $\leadsto$ (Y', T'), (X', H') = (Y', T')
+
+% proof: wellfoundness ensure we do not write to old state and replace old node with other values. other part of proof is trivial.
+
+% The above theorem establish a connection between the CEK machine and the CEKR machine, by ignoring the replaying aspect of the CEKR machine, and only using it as if all values are stored in the tock tree (even though some nodes might already be evicted!). We will next connect ghost-stepping with regular stepping in the CEKR machine.
+
+% Lemma: stepping without changing rk is the same as ghost-stepping
+
+% proof: trivial
+
+% Lemma: if stepping add to rk, the moment it change back, is the same as single ghost-stepping
+
+% proof: due to well-foundness the cell RApply recieve must be the same as the same cell on the tock tree but inaccessible. Note that the stepping made here cannot add new node as it is bounded by the tock on the replay continuation, which is on the tock tree.
+
+% Lemma: it must change back
+
+% proof: by lexicalgraphical ordering on rk and on state
+
+% Theorem: X, rk, tt step-star Y, rk, tt' -> X tt ghost-step-star Y, tt'', with tt' eqmodev tt'
+
+% proof: the step-star can be decomposed into sequence of no-rk-change step, or a push, with multiple step, and finally a pop. either case is covered by a lemma above.
+
+% \subsection{Performance}
+% \subsubsection{Pebble Game}
+
+
+% Let $G=(V,E)$ be a directed acyclic graph with maximum in-degree of $k$, where $V$ is a set of vertices and $E$ is a set of ordered pairs $(v_1, v_2)$ of vertices.
+
+% For each $v\in V$, we can
+% \begin{itemize}
+% 	\item place a pebble on it if $\forall u\in V$ that $(u, v)\in E$, $u$ has a pebble, which means all predecessors of $v$ have pebbles.
+% 	\item remove the pebble on it if $v$ already has a pebble.
+% \end{itemize}
+
+% The goal is to place a pebble on a specific vertex and minimize the number of pebbles simultaneously on the graph during the steps.
+
+
+
+% \subsubsection{Translation to pebble game}
+% \subsubsection{Theorem}
+% memory consumption is linear to amount of object with O(1) access cost
+
 \section{Formal Guarantee}
 \subsection{Correctness}
-\todo{the cek in this section does not use heap at all! in fact I dont think we really need the heap version. I think we should rename the cek with pointer into cekm, and explain it only for introductory purpose (or not at all).}
+\todo{the CEK in this section does not use heap at all! In fact, I do not think we really need the heap version. I think we should rename the CEK with a pointer into CEKM, and explain it only for introductory purposes (or not at all).}
 \subsubsection{Tock Tree Setup}
-In order to reason about the CEKR machine, we needed to reason about nodes in the tock tree, even if such node is evicted.
+To reason about the CEKR machine, we needed to reason about nodes in the tock tree, even if such node is evicted.
 
-While we can reify the tock tree insertions into a list, forming into a trace semantic and reasoning on top of the list, it is easier to allow querying the tock tree for evicted data. In our formalization, we assume that the tock tree does not really evict; However, each node is now paired with a boolean bit, indicating whether it had been evicted or not. We will then have a function query\_ghost : (TockTree, Tock) -> (Bool, Node) that return the Node, along with a boolean indicating whether the node is present.
+While we can reify the tock tree insertions into a list, forming a trace semantic and reasoning on top of the list, it is easier to allow querying the tock tree for evicted data. In our formalization, we assume that the tock tree does not really evict; However, each node is now paired with a boolean bit, indicating whether it has been evicted or not. We will then have a function query\_ghost : (TockTree, Tock) -> (Bool, Node) that returns the Node, along with a boolean indicating whether the node is present.
 
 \subsubsection{CEK/CEKR connection}
-With query\_ghost, we can connect value from the CEKR machine to the CEK machine. More specifically, we can now define a Sem(standing for semantic) function, that convert a CEKR-value to a CEK-value under a given tock tree. The function work by recursively calling query\_ghost.
+With query\_ghost, we can connect the value from the CEKR machine to the CEK machine. More specifically, we can now define a Sem(standing for semantic) function, that converts a CEKR-value to a CEK-value under a given tock tree. The function works by recursively calling query\_ghost.
 
 
-Like wise, we can define equality on continuation, and on state. Additionally, we define 'equality modulo eviction' between two Tock Tree, to be that the two Tock Tree contain the same node, but they might be under different eviction status. Formally speaking, forall Tock, the two Tock Tree must return two equal node, but the eviction bit might differ.
+Likewise, we can define equality on continuations and states. Additionally, we define 'equality modulo eviction' between two Tock Trees, to be that the two Tock Trees contain the same node, but they might be under different eviction status. Formally speaking, for all Tock, the two Tock Trees must return two equal nodes, but the eviction bit might differ.
 
 \subsubsection{Ghost Stepping}
 
-Alongside query\_ghost, is the idea of ghost\_stepping \todo{this name suck}. Just like the state transition on CEKR, ghost\_stepping is also a transition on State, TockTree tuple. However, unlike the classical state transition, ghost\_stepping use query\_ghost in place of query, which retrieve the exact node, even if the node is evicted. ghost\_stepping is unimplementable, but just like our formalization of Tock Tree and query\_ghost, it is purely for formalization purpose. As ghost\_step does not need any replay, it does not have the replay continuation. ghost\_step serve as a bridge between CEK and CEKR, connecting the two semantic. Once this is completed, we can only talk about correspondence between ghost\_step and normal step, inside CEKR, without mentioning the CEK machine at all.
+Alongside query\_ghost, is the idea of ghost\_stepping \todo{this name suck}. Just like the state transition on CEKR, ghost\_stepping is also a transition on State, TockTree tuple. However, unlike the classical state transition, ghost\_stepping uses query\_ghost in place of query, which retrieves the exact node, even if the node is evicted. ghost\_stepping is unimplementable, but just like our formalization of Tock Tree and query\_ghost, it is purely for formalization purposes. As ghost\_step does not need any replay, it does not have the replay continuation. ghost\_step serves as a bridge between CEK and CEKR, connecting the two semantics. Once this is completed, we can only talk about correspondence between ghost\_step and normal step, inside CEKR, without mentioning the CEK machine at all.
 
 Lemma: CEK stepping is deterministic.
 
@@ -22,28 +115,28 @@ proof: trivial.
 
 Lemma: Ghost stepping is deterministic.
 
-proof: trivial. note that this require the tock tree being deterministic itself. write down this requirement in the right place.
+proof: trivial. note that this requires the tock tree to be deterministic itself. write down this requirement in the right place.
 
 Lemma: Ghost stepping is congruent under eqmodev.
 
-proof: ghost stepping do not read from eviction status.
+proof: ghost stepping does not read from eviction status.
 
 \subsubsection{Well Foundness}
 A tock tree T is well-founded \todo{is this the right word?} if:
 \begin{enumerate}
-	\item The left most node exist and is not be evicted. (root-keeping)
-	\item Forall node N inserted at tock T, N only refer to tock < T. (tock-ordering)
-	\item Forall node pair L R (R come right after L in the tock tree), if (L.state, T) ghost\_step to (X, XT), X = R.state and T eqmodev XT. (replay-correct)
-	\item Additionally, a (state, tock tree) pair is well-founded if state is in the tock tree. (state-recorded)
+    \item The leftmost node exists and is not evicted. (root-keeping)
+    \item Forall node N inserted at tock T, N only refers to tock < T. (tock-ordering)
+    \item Forall node pair L R (R come right after L in the tock tree), if (L.state, T) ghost\_step to (X, XT), X = R.state and T eqmodev XT. (replay-correct)
+    \item Additionally, a (state, tock tree) pair is well-founded if the state is in the tock tree. (state-recorded)
 \end{enumerate}
 
-Lemma: ghost stepping preserve well-foundedness.
+Lemma: ghost stepping preserves well-foundedness.
 proof:
 \begin{enumerate}
-	\item root-keeping is maintained by the tock tree implementation and is a requirement.
-	\item tock-ordering is maintained - check each insert.
-	\item replay-correct is maintained: the transit-from state must be on the tock tree due to state-recorded. If it is not the rightmost case, due to replay-correct we had repeatedly inserted a node. Since ghost-stepping is congruent under eqmodev replay-correct is maintained. If it is the rightmost state, a new node is inserted. All pair except the last pair is irrelevant to the insertion, because due to tock-ordering they cannot refer to it. For the last pair, ghost-step must reach the same state due to determinism in ghost-stepping.
-	\item state-recorded is maintained: we just inserted said state.
+    \item root-keeping is maintained by the tock tree implementation and is a requirement.
+    \item tock-ordering is maintained - check each insert.
+    \item replay-correct is maintained: the transit-from state must be on the tock tree due to state-recorded. If it is not the rightmost case, due to replay-correct we had repeatedly inserted a node. Since ghost-stepping is congruent under eqmodev replay-correct is maintained. If it is the rightmost state, a new node is inserted. All pairs except the last pair are irrelevant to the insertion because due to tock-ordering they cannot refer to it. For the last pair, the ghost-step must reach the same state due to determinism in ghost-stepping.
+    \item state-recorded is maintained: we just inserted said state.
 \end{enumerate}
 
 \subsubsection{Main Theorem}
@@ -51,36 +144,36 @@ Theorem: under well-foundness, CEK-step and ghost-stepping preserve equivalence.
 
 Formally: given CEK-step X, CEKR state Y, if (X, H) = (Y, T) and T is well-founded, (X, H) $\leadsto$ (X', H'), (Y, T) $\leadsto$ (Y', T'), (X', H') = (Y', T')
 
-proof: wellfoundness ensure we do not write to old state and replace old node with other values. other part of proof is trivial.
+proof: wellfoundness ensures we do not write to the old state and replace the old node with other values. other part of the proof is trivial.
 
-The above theorem establish a connection between the CEK machine and the CEKR machine, by ignoring the replaying aspect of the CEKR machine, and only using it as if all values are stored in the tock tree (even though some nodes might already be evicted!). We will next connect ghost-stepping with regular stepping in the CEKR machine.
+The above theorem establishes a connection between the CEK machine and the CEKR machine, by ignoring the replaying aspect of the CEKR machine, and only using it as if all values are stored in the tock tree (even though some nodes might already be evicted!). We will next connect ghost-stepping with regular stepping in the CEKR machine.
 
 Lemma: stepping without changing rk is the same as ghost-stepping
 
 proof: trivial
 
-Lemma: if stepping add to rk, the moment it change back, is the same as single ghost-stepping
+Lemma: if stepping add to rk, the moment it changes back, is the same as single ghost-stepping
 
-proof: due to well-foundness the cell RApply recieve must be the same as the same cell on the tock tree but inaccessible. Note that the stepping made here cannot add new node as it is bounded by the tock on the replay continuation, which is on the tock tree.
+proof: due to well-foundness the cell RApply receives must be the same as the same cell on the tock tree but inaccessible. Note that the stepping made here cannot add a new node as it is bounded by the tock on the replay continuation, which is on the tock tree.
 
 Lemma: it must change back
 
-proof: by lexicalgraphical ordering on rk and on state
+proof: by lexicographical ordering on rk and on state
 
 Theorem: X, rk, tt step-star Y, rk, tt' -> X tt ghost-step-star Y, tt'', with tt' eqmodev tt'
 
-proof: the step-star can be decomposed into sequence of no-rk-change step, or a push, with multiple step, and finally a pop. either case is covered by a lemma above.
+proof: the step-star can be decomposed into a sequence of no-rk-change steps, or a push, with multiple steps, and finally a pop. either case is covered by a lemma above.
 
 \subsection{Performance}
 \subsubsection{Pebble Game}
 
 
-Let $G=(V,E)$ be a directed acyclic graph with maximum in-degree of $k$, where $V$ is a set of vertices and $E$ is a set of ordered pairs $(v_1, v_2)$ of vertices.
+Let $G=(V,E)$ be a directed acyclic graph with a maximum in-degree of $k$, where $V$ is a set of vertices and $E$ is a set of ordered pairs $(v_1, v_2)$ of vertices.
 
 For each $v\in V$, we can
 \begin{itemize}
-	\item place a pebble on it if $\forall u\in V$ that $(u, v)\in E$, $u$ has a pebble, which means all predecessors of $v$ have pebbles.
-	\item remove the pebble on it if $v$ already has a pebble.
+    \item place a pebble on it if $\forall u\in V$ that $(u, v)\in E$, $u$ has a pebble, which means all predecessors of $v$ have pebbles.
+    \item remove the pebble on it if $v$ already has a pebble.
 \end{itemize}
 
 The goal is to place a pebble on a specific vertex and minimize the number of pebbles simultaneously on the graph during the steps.
@@ -89,4 +182,4 @@ The goal is to place a pebble on a specific vertex and minimize the number of pe
 
 \subsubsection{Translation to pebble game}
 \subsubsection{Theorem}
-memory consumption is linear to amount of object with O(1) access cost
+memory consumption is linear to the number of object with O(1) access cost
