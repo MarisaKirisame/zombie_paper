@@ -1,0 +1,30 @@
+
+\subsection{Failed Attempt}
+At first glance, uncomputation is easy, as its cousin, lazy evaluation, is heavily studied. In lazy computation, an object might be represented as thunks, which, when needed, is then computed, and the thunk is replaced by the value. A solution to uncomputation is to modify thunk, so that, upon computing, the old function is still kept. This allows the thunk to uncompute as if it had never been recomputed.
+
+\begin{mathpar}
+    $Lazy Evaluation: type 'a lazy = MkLazy of ('a, unit -> 'a) either ref \\
+    Uncomputation: type 'a uncompute = MkUncompute of 'a option ref * (unit -> 'a)$
+\end{mathpar}
+
+Just like lazy evaluation, we can then uniformly lift all values on top of our modified value type, inserting code that forces weak head normal form upon data access and has some caching policy to decide what to uncompute, which merely rewrites the reference back into the empty optional value.
+
+However, there are multiple problems with this approach:
+\begin{enumerate}
+    \item size measurement. We want to gather statistics to decide what values to evict, and one of the most important statistics is the memory an object consumes. However, the heap forms a complex object graph, and fast cardinality estimation is highly complex.
+    \item dopple ganger. The translation will lift a list into nested uncompute. Now suppose variable X holds a list, while variable Y holds a sublist of X, sharing the same representation\todo{bad wording do not know how to fix}. When X is uncomputed and recomputed, the corresponding Y part will be duplicated, so there will be two representations of Y in memory. In the extreme case, such duplication can force the program to take exponentially more memory. 
+    \item bread crumb. A thunk captures other values as a free variable, which contains a thunk part, capturing more value. This recursive process captures all values that the current value transitively computes on. Since we still need memory to store the thunk itself, and since a thunk is typically larger than an object, anything we gained on uncomputation, will be offset by the metadata.
+\end{enumerate}
+
+While the above three problems seem difficult, we can observe they are all but mere manifestations of recursiveness. In particular, size measurement and dopple ganger deal with recursive objects and breadcrumb deals with recursive thunk. This indicates that a solution that handles recursiveness will naturally solve the three problems at once.
+
+\subsection{A recursive Solution}
+To combat recursiveness we take heavy inspiration from Abstracting Abstract Machine (AAM). AAM lifts abstract interpretation onto programming languages with arbitrary features. The critical problem there is likewise recursiveness, as a naive lifting might allow the lattice infinite merge, causing the analysis to non-terminate. AAM proposes to use an abstract machine that abstracts over pointers, allocations, and lookups to manage recursiveness.
+
+Likewise, the three recursiveness problems listed above can be handled similarly. We started from a purely functional language, specifying its semantics with the CEK machine. We can then abstract over pointers/allocations/lookups similarly.
+
+Most importantly, our key insight is that by careful handling of our core data structure, the tock tree, which will be explained later, we can remove a value, alongside the metadata(thunk) on that value, yet still recompute it later. This solves the breadcrumb problem which renders the naive approach unsalvageable.
+
+Alongside our solution is proof that it is both correct and efficient. Our correctness proof states that uncomputing will not affect the final result(preservation), and will not infinite loop(progress). The result will be the same as what gets computed by the raw, uncomputation-free semantic, no matter what we evicted. Our efficiency proof states that if our memory consumption is O(n), where n is the amount of live objects: objects that take O(1) time to force into weak head normal form. In particular, this implies asymptotically we use no space to store any evicted object, yet we somehow can access the metadata that recomputes them!
+
+We implemented our solution, alongside an eviction policy that is both fast to compute and makes better decisions over classical eviction policies like LRU, random, and GDSF.

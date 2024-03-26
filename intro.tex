@@ -58,40 +58,101 @@ Yet, saving memory is still an important topic worth studying:
     \item Low memory limit. Wasm has a memory limit of 2GB, and embedded devices or poor people may have devices with lower RAM. GPU and other accelerator use their own separate memory and usually are of smaller capacity than main memory.
 \end{itemize}
 
-A typical and generic solution to reduce memory consumption is by uncomputation. Uncomputation trades space for time, by tagging values with the metadata that created it(thunk), and when memory is low, deallocate values that might be used later on, recomputing them back with the thunk when the value is needed again.
+At best, programmers today approach memory savings
+  in an ad-hoc, case-by-case way:
+  they examine their program
+  and rewrite it to use less memory,
+  possibly by using caching, lazy computation, or novel algorithms.
+However, these case-by-case solutions
+  are not always available,
+  since they depend on the details of the computation.
+Moreover, even when available, 
+  such solutions can require substantial programmer effort,
+  including rewriting the program data flow
+  to enable new algorithms or architectures
+  that reduce memory usage.
 
-Another generic solution is swapping, whereupon low memory, pages are swapped to disk and swapped back when needed again. While swapping had been implemented for basically all operating systems, it is an especially bad solution for functional and object-oriented languages, as those languages allocate and deallocate lots of small objects, yet swapping work on the granularity of pages, unable to separate out the hot objects, that had been recently accessed from the code objects, that had not been accessed.
+We instead seek a generic and automatic solution to the problem
+  of reducing program memory consumption.
+By generic, we mean a solution
+  that is applicable to arbitrary programs
+  in a given programming language.
+By automatic, we mean a solution
+  that requires no programmer annotations
+  or other modifications to the program itself.
+In other words, we seek a runtime system
+  that would automatically reduce the memory consumption
+  of a program.
+Moreover, we would like to reduce memory consumption
+  below the level of live heap memory
+  (unlike garbage collection)
+  that adapts to fine-grained program behavior
+  (unlike swapping.)
 
-Typically, uncomputation is implemented on an ad-hoc, case-by-case basis. When software consumes more memory than desired, its programmer can (1) look at the program, (2) decide which part is using excessive memory, then (3) add custom data type to record the thunk, alongside the code to replace it (4) implement a cache eviction policy to decide what data to evict(uncompute). Another solution is to analyze the algorithm carefully, replacing the algorithm with a specialized version with recomputation in mind, see gradient checkpointing/iterative deepening depth-first search/island algorithm.
+\name is a generic and automatic runtime system
+  that reduces program memory consumption
+  by evicting values from memory
+  and recomputing them when necessary.
+That is, \name is a runtime
+  for a simple purely-functional program language
+  (which we call $\lambda_Z$)
+  that pairs every value on the heap
+  with the information necessary
+  to recompute that value if it were evicted.
+\name can then evict any heap value
+  at any point in time,
+  thereby reducing program memory consumption,
+  working below the level of live heap memory
+  and adapting to fine-grained program behavior.
+In doing so,
+  \name preserves the original program semantics,
+  makes forward execution progress
+  and is relatively efficient in its use of memory.
+Of course, the cost of replay
+  is longer program runtime
+  (since individual program steps may be replayed many times);
+  in this way, \name introduces a space-time tradeoff,
+  where programs run faster when more memory is available.
+That said, various optimizations,
+  such as batching, a fast path for hot objects,
+  and union find for fast eviction,
+  allows \name to run at moderate overhead
+  compared to a more traditional runtime.
 
-Needless to say, this process is extremely cumbersome, taking precious developers' time away from more critical tasks such as optimizing CPU usage or implementing new features, so a generic, automatic approach is needed to reduce memory consumption.
+Moreover, \name achieves its memory reduction
+  without adding a commensurate memory overhead.
+That is, the amount of metadata stored by \name
+  to enable recomputation
+  is proportional to the total memory,
+  and independent of how long the program has been running.
+To achieve this,
+  \name stores replay points sparsely,
+  so that replaying a given computation
+  might involve replaying earlier computations as well,
+  starting from whatever earlier replay point is available.
+The sparse replay points
+  allow \name to keep the total memory dedicated to replay limited
+  while still enabling it to recompute any arbitrary value.
 
-\subsection{Failed Attempt}
-At first glance, uncomputation is easy, as its cousin, lazy evaluation, is heavily studied. In lazy computation, an object might be represented as thunks, which, when needed, is then computed, and the thunk is replaced by the value. A solution to uncomputation is to modify thunk, so that, upon computing, the old function is still kept. This allows the thunk to uncompute as if it had never been recomputed.
+To evaluate \name,
+  we test 10 $lambda_Z$ programs
+  that implement common algorithmic tasks
+  such as balanced binary trees, list and array manipulation,
+  and recursive functions.
+Each program is run with different memory limits,
+  ranging as low as \todo{one thousandth}
+  of a traditional run-time's memory consumption.
+\name allows the programs to run
+  despite severe memory restrictions,
+  with a $10\times$ reduction in memory
+  typically resulting in a $5\times$ increase in running time.
 
-\begin{mathpar}
-    $Lazy Evaluation: type 'a lazy = MkLazy of ('a, unit -> 'a) either ref \\
-    Uncomputation: type 'a uncompute = MkUncompute of 'a option ref * (unit -> 'a)$
-\end{mathpar}
-
-Just like lazy evaluation, we can then uniformly lift all values on top of our modified value type, inserting code that forces weak head normal form upon data access and has some caching policy to decide what to uncompute, which merely rewrites the reference back into the empty optional value.
-
-However, there are multiple problems with this approach:
-\begin{enumerate}
-    \item size measurement. We want to gather statistics to decide what values to evict, and one of the most important statistics is the memory an object consumes. However, the heap forms a complex object graph, and fast cardinality estimation is highly complex.
-    \item dopple ganger. The translation will lift a list into nested uncompute. Now suppose variable X holds a list, while variable Y holds a sublist of X, sharing the same representation\todo{bad wording do not know how to fix}. When X is uncomputed and recomputed, the corresponding Y part will be duplicated, so there will be two representations of Y in memory. In the extreme case, such duplication can force the program to take exponentially more memory. 
-    \item bread crumb. A thunk captures other values as a free variable, which contains a thunk part, capturing more value. This recursive process captures all values that the current value transitively computes on. Since we still need memory to store the thunk itself, and since a thunk is typically larger than an object, anything we gained on uncomputation, will be offset by the metadata.
-\end{enumerate}
-
-While the above three problems seem difficult, we can observe they are all but mere manifestations of recursiveness. In particular, size measurement and dopple ganger deal with recursive objects and breadcrumb deals with recursive thunk. This indicates that a solution that handles recursiveness will naturally solve the three problems at once.
-
-\subsection{A recursive Solution}
-To combat recursiveness we take heavy inspiration from Abstracting Abstract Machine (AAM). AAM lifts abstract interpretation onto programming languages with arbitrary features. The critical problem there is likewise recursiveness, as a naive lifting might allow the lattice infinite merge, causing the analysis to non-terminate. AAM proposes to use an abstract machine that abstracts over pointers, allocations, and lookups to manage recursiveness.
-
-Likewise, the three recursiveness problems listed above can be handled similarly. We started from a purely functional language, specifying its semantics with the CEK machine. We can then abstract over pointers/allocations/lookups similarly.
-
-Most importantly, our key insight is that by careful handling of our core data structure, the tock tree, which will be explained later, we can remove a value, alongside the metadata(thunk) on that value, yet still recompute it later. This solves the breadcrumb problem which renders the naive approach unsalvageable.
-
-Alongside our solution is proof that it is both correct and efficient. Our correctness proof states that uncomputing will not affect the final result(preservation), and will not infinite loop(progress). The result will be the same as what gets computed by the raw, uncomputation-free semantic, no matter what we evicted. Our efficiency proof states that if our memory consumption is O(n), where n is the amount of live objects: objects that take O(1) time to force into weak head normal form. In particular, this implies asymptotically we use no space to store any evicted object, yet we somehow can access the metadata that recomputes them!
-
-We implemented our solution, alongside an eviction policy that is both fast to compute and makes better decisions over classical eviction policies like LRU, random, and GDSF.
+In short, this paper contributions:
+\begin{itemize}
+\item Zombie, a runtime that saves memory
+  for arbitrary programs without programmer effort;
+\item Proofs that Zombie
+  preserves program semantics, makes progress, and is efficient;
+\item A collection of optimizations
+  that enable Zombie to run with moderate runtime overhead.
+\end{itemize}
