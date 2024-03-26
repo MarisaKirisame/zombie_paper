@@ -97,36 +97,41 @@
 \subsubsection{Tock Tree Setup}
 To reason about the CEKR machine, we needed to reason about nodes in the tock tree, even if such node is evicted.
 
-While we can reify the tock tree insertions into a list, forming a trace semantic and reasoning on top of the list, it is easier to allow querying the tock tree for evicted data. In our formalization, we assume that the tock tree does not really evict; However, each node is now paired with a boolean bit, indicating whether it has been evicted or not. We will then have a function query\_ghost : (TockTree, Tock) -> (Bool, Node) that returns the Node, along with a boolean indicating whether the node is present.
+While we can reify the tock tree insertions into a list, forming a trace semantic and reasoning on top of the list, it is easier to allow querying the tock tree for evicted data. In our formalization, we assume that the tock tree does not really evict; Instead, each node is now paired with a boolean bit, indicating whether it has been evicted or not. We will then have a function QueryGhost : (TockTree, Tock) -> (Bool, Node) that returns the Node, along with a boolean indicating whether the node is present.
 
-\subsubsection{CEK/CEKR connection}
-With query\_ghost, we can connect the value from the CEKR machine to the CEK machine. More specifically, we can now define a Sem(standing for semantic) function, that converts a CEKR-value to a CEK-value under a given tock tree. The function works by recursively calling query\_ghost.
+In some cases, we do not care about the eviction status of the tock tree, and we only care about the Node corresponding to each tock. For this purpose, we define two tock tree X, Y, to be 'equal modulo eviction', if they contains the same node, under different eviction status. Formally speaking, X eqmodev Y $\iff$ $\forall$ t, $\exists$ xev yev node LookupGhost(t, X) = (xev, node) and LookupGhost(t, Y) = (yev, node).
 
+Using QueryGhost, we can define a function, LookupGhost, that return the Cell corresponding to a tock. We can then use LookupGhost to connect the CEKR machine to the CEK machine. With LookupGhost, we can connect the value from the CEKR machine to the CEK machine. More specifically, we can now define a Sem(standing for semantic) function, that converts a CEKR-value to a CEK-value under a given tock tree. The function works by recursively calling LookupGhost.
 
-Likewise, we can define equality on continuations and states. Additionally, we define 'equality modulo eviction' between two Tock Trees, to be that the two Tock Trees contain the same node, but they might be under different eviction status. Formally speaking, for all Tock, the two Tock Trees must return two equal nodes, but the eviction bit might differ.
-
+\begin{figure}
+	\begin{mathpar}
+		\inferrule{ }{ LookupGhost : (Tock, TockTree) \to CEK-Value | CEK-Continuation } \and
+		\inferrule{ QueryGhost(t, tt) = (\_, Node(Just x, st)) }{LookupGhost(t, tt) = x } \and
+		\inferrule{ }{Sem : (CEKR-Value|CEKR-Continuation, TockTree) \to CEK-Value | CEK-Continuation} \and
+		\inferrule{ LookupGhost(t, tt) = VProd(l, r) }{Sem(t, tt) = VProd(Sem(l, tt), Sem(r, tt))}
+		\inferrule{ }{Convert : CEKR-Machine \to CEK-State} \and
+		\inferrule{ }{ }
+	\end{mathpar}
+\end{figure}
 \subsubsection{Ghost Stepping}
 
-Alongside query\_ghost, is the idea of ghost\_stepping \todo{this name suck}. Just like the state transition on CEKR, ghost\_stepping is also a transition on State, TockTree tuple. However, unlike the classical state transition, ghost\_stepping uses query\_ghost in place of query, which retrieves the exact node, even if the node is evicted. ghost\_stepping is unimplementable, but just like our formalization of Tock Tree and query\_ghost, it is purely for formalization purposes. As ghost\_step does not need any replay, it does not have the replay continuation. ghost\_step serves as a bridge between CEK and CEKR, connecting the two semantics. Once this is completed, we can only talk about correspondence between ghost\_step and normal step, inside CEKR, without mentioning the CEK machine at all.
+Alongside QueryGhost, is the idea of GhostProduce and GhostStepping \todo{this name suck}. GhostProduce is a function from (CEKR-State, TockTree) tuple to (Node, TockTree). GhostProduct represent executing a single transition via QueryGhost (so it need not involve any replay), returning the produced Node alongside the new TockTree, with the Node inserted. GhostProduct allow us to define GhostStepping, which is a transition from CEKR-Machine to CEKR-Machine, mimicing a CEKR-transition that cannot fail, as it use QueryGhost instead of Query. GhostStepping is unimplementable, but just like our formalization of Tock Tree and QueryGhost, it is purely for formalization purposes. As GhostStep does not need any replay, it does not have the replay continuation. GhostStep serves as a bridge between CEK and CEKR, connecting the two semantics. Once this is completed, we can only talk about correspondence between GhostStep and normal step, inside CEKR, without mentioning the CEK machine at all.
 
-Lemma: CEK stepping is deterministic.
-
+Lemma: CEK stepping is deterministic: $\forall$ CEK-State X Y Z, X $\leadsto$ Y and X $\leadsto$ Z $\implies$ X = Y.
 proof: trivial.
 
-Lemma: Ghost stepping is deterministic.
+Lemma: Ghost stepping is deterministic: $\forall$ CEKR-Machine X Y Z, X $\leadsto$ Y and X $\leadsto$ Z $\implies$ X = Y.
+proof: trivial.
 
-proof: trivial. note that this requires the tock tree to be deterministic itself. write down this requirement in the right place.
-
-Lemma: Ghost stepping is congruent under eqmodev.
-
+Lemma: Ghost stepping is congruent under eqmodev: $\forall$ (State | Return Cell) S S', ReplayContinuation RK RK', TockTree x y x', eqmodev x y and (S, RK), x $\leadsto$ (S', RK'), x' $\implies$ $\exists$ y', (S, RK), y $\leadsto$ (S', RK'), y' and eqmodev x' y'.
 proof: ghost stepping does not read from eviction status.
 
 \subsubsection{Well Foundness}
-A tock tree T is well-founded \todo{is this the right word?} if:
+A tock tree T is well-founded if:
 \begin{enumerate}
     \item The leftmost node exists and is not evicted. (root-keeping)
     \item Forall node N inserted at tock T, N only refers to tock < T. (tock-ordering)
-    \item Forall node pair L R (R come right after L in the tock tree), if (L.state, T) ghost\_step to (X, XT), X = R.state and T eqmodev XT. (replay-correct)
+    \item Forall node pair L R (R come right after L in the tock tree), (L.state, T) GhostProduce R.
     \item Additionally, a (state, tock tree) pair is well-founded if the state is in the tock tree. (state-recorded)
 \end{enumerate}
 
@@ -142,14 +147,14 @@ proof:
 \subsubsection{Main Theorem}
 Theorem: under well-foundness, CEK-step and ghost-stepping preserve equivalence.
 
-Formally: given CEK-step X, CEKR state Y, if (X, H) = (Y, T) and T is well-founded, (X, H) $\leadsto$ (X', H'), (Y, T) $\leadsto$ (Y', T'), (X', H') = (Y', T')
+Formally: given CEK State X X', CEKR Machine M, if NoReplay(M) and Convert(M) = X and T is well-founded, X $\leadsto$ X', and (M) $\leadsto$ (M'), NoReplay(M') and Convert(M') = X'.
 
 proof: wellfoundness ensures we do not write to the old state and replace the old node with other values. other part of the proof is trivial.
 
 The above theorem establishes a connection between the CEK machine and the CEKR machine, by ignoring the replaying aspect of the CEKR machine, and only using it as if all values are stored in the tock tree (even though some nodes might already be evicted!). We will next connect ghost-stepping with regular stepping in the CEKR machine.
 
-Lemma: stepping without changing rk is the same as ghost-stepping
-
+Lemma: stepping without changing rk is the same as ghost-stepping.
+Formally: if ((S, rk), tt) $\leadsto$ (S', rk, tt'), ((S, rk), tt) GhostStepTo ((S', rk), tt').
 proof: trivial
 
 Lemma: if stepping add to rk, the moment it changes back, is the same as single ghost-stepping
