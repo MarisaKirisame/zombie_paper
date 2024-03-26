@@ -1,0 +1,201 @@
+\section{CEK and CEK-H Machine Formalism}
+\label{adx:cek}
+\label{adx:cekh}
+
+\begin{figure}
+\begin{tabular}{\mytableshape}
+	Kontinuation & $K$ & $::=$ & $P \langle \KCell \rangle$ \\
+	
+	KCell & & $::=$ & $
+	\Done \mid
+	KLookup~K~ \mid
+	\KLet~N~\Env~C~K \mid
+	\KApp_0~\Env~C~K \mid
+	\KApp_1~\Env~N~C~K \mid
+	\KProd_0~\Env~C~K \mid
+	\KProd_1~V~K \mid
+	\KZro~K \mid
+	\KFst~K \mid
+	\KLeft~K \mid
+	\KRight~K \mid
+	\KCase~\Env~N~C~N~C~K $ \\
+	
+	Value & $V$ & $::=$ & $P\langle \VCell \rangle$ \\
+	VCell & & $::=$ & $
+	\Clos~\Env~N~E \mid
+	\VProd~V~V \mid
+	\VLeft~V \mid
+	\VRight~V $
+\end{tabular}
+\caption{Value and Kontinuation definitions
+  for the CEK-H Machine.
+  Note that values and kontinuations are pointers,
+  and the pointed-to value and kontinuation cells
+  themselves contain pointers.
+  As a result, all values on the heap are bounded-size.
+}
+\label{fig:hdefs}
+\end{figure}
+
+\begin{figure}
+	\begin{mathpar}
+		\inferrule{ }{\text{State} \leadsto \text{State}} \and
+		\inferrule{ }{\Eval(N, \Env, K) \leadsto \Apply(K, \Env(N))} \and
+		\inferrule{ }{\Eval(\sLet~A=B~\sIn~C, \Env, K) \leadsto \Eval(B, \Env, \KLet~A~K~C~\Env)} \and
+		\inferrule{ }{\Apply(\KLet~A~\Env~C~K, V) \leadsto \Eval(C, \Env[A := V], K)} \and
+		\inferrule{ }{\Eval(\backslash N. C, \Env, K) \leadsto \Apply(K, \Clos~\Env(\text{fv})\cdots N~C)} \and
+		\inferrule{ }{\Eval(F(X), \Env, K) \leadsto \Eval(F, \KApp_0~K~X)} \and
+		\inferrule{ }{\Apply(\KApp_0~\Env~X~K, \Clos~\Env'~N~C) \leadsto \Eval(X, \Env, \KApp_1~\Env'~N~C~K)} \and
+		\inferrule{ }{\Apply(\KApp_1~\Env~N~C~K, V) \leadsto \Eval(C, \Env[N := V], K)}
+		\inferrule{ }{\Eval((L, R), \Env, K) \leadsto \Eval(L, \Env, \KProd_0~K~R)} \and
+		\inferrule{ }{\Apply(\text{KProd0}~\Env~R~K, V) \leadsto \Eval(R, Env, \KProd_1~V~K)} \and
+		\inferrule{ }{\Apply(\KProd_1~L~K, V) \leadsto \Apply(K, \VProd~L~V)} \and
+		\inferrule{ }{\Eval(X.0, \Env, K) \leadsto \Eval(X, \Env, \KZro~K)} \and
+		\inferrule{ }{\Apply(\KZro~K, \VProd~X~Y) \leadsto \Apply(K, X)} \and
+		\inferrule{ }{\Eval(X.1, \Env, K) \leadsto \Eval(X, \Env, \KFst~K)} \and
+		\inferrule{ }{\Apply(\KFst~K, \VProd~X~Y) \leadsto \Apply(K, Y)} \and
+		\inferrule{ }{\Eval(\sLeft~X, \Env, K) \leadsto \Eval(X, \Env, \KLeft~K)} \and
+		\inferrule{ }{\Apply(\KLeft~K, V) \leadsto \Apply(K, \VLeft~V)} \and
+		\inferrule{ }{\Eval(\sRight~X, \Env, K) \leadsto \Eval(X, \Env, \KRight~K)} \and
+		\inferrule{ }{\Apply(\KRight~K, V) \leadsto \Apply(K, \VRight~V)} \and
+		\inferrule{ }{\Eval(\sCase~X~\sOf~\sLeft~LN\Rightarrow L~||~\sRight~RN\Rightarrow R, \Env, K) \leadsto \Eval(X, \Env, \KCase~\mathit{LN}~L~\mathit{RN}~R~\Env)} \and
+		\inferrule{ }{\Apply(\KCase~\Env~\mathit{LN}~L~\mathit{RN}~R~K, VLeft V) \leadsto \Eval(L, \Env[\mathit{LN} := V], K)} \and
+		\inferrule{ }{\Apply(\KCase~\Env~\mathit{LN}~L~\mathit{RN}~R~K, VRight V) \leadsto \Eval(R, \Env[\mathit{RN} := V], K)} \and
+	\end{mathpar}
+	\caption{Abstract Machine Transition: No Pointer}
+	\label{fig:apply}
+\end{figure}
+
+\begin{figure}
+	\begin{mathpar}
+		\inferrule{ }{\text{State}, H \leadsto \text{State}, H} \and
+		\inferrule{ \Lookup(K, H) = KCell }{\Eval(N, \Env, K), H \leadsto \Apply(KCell, \Env(N)), H} \and
+		\inferrule{\Alloc(\KLet~A~K~C~\Env, H) = (P, H')}{\Eval(\sLet~A=B~\sIn~C, \Env, K), H \leadsto \Eval(B, \Env, P), H'} \and
+		\inferrule{ \Lookup(K, H) = KCell \and \Alloc(\Clos~\Env(\text{fv})\cdots N~C, H) = (P, H')}{\Eval(\backslash N. C, \Env, K), H \leadsto \Apply(KCell, P), H'} \and
+		\inferrule{\Alloc(\KApp_0~K~X, H) = (P, H')}{\Eval(F(X), \Env, K), H \leadsto \Eval(F, P), H'} \and
+		\inferrule{\Alloc(\KProd_0~K~R, H) = (P, H')}{\Eval((L, R), \Env, K), H \leadsto \Eval(L, \Env, P), H'} \and
+		\inferrule{\Alloc(\KZro~K, H) = (P, H')}{\Eval(X.0, \Env, K), H \leadsto \Eval(X, \Env, P), H'} \and
+		\inferrule{\Alloc(\KFst~K, H) = (P, H')}{\Eval(X.1, \Env, K), H \leadsto \Eval(X, \Env, P), H'} \and
+		\inferrule{\Alloc(\KLeft~K, H) = (P, H')}{\Eval(\sLeft~X, \Env, K), H \leadsto \Eval(X, \Env, P), H'} \and
+		\inferrule{\Alloc(\KRight~K, H) = (P, H')}{\Eval(\sRight~X, \Env, K), H \leadsto \Eval(X, \Env, P), H'} \and
+		\inferrule{\Alloc(\KCase~\mathit{LN}~L~\mathit{RN}~R~\Env, H) = (P, H')}{\Eval(\sCase~X~\sOf~\sLeft~LN\Rightarrow L~||~\sRight~RN\Rightarrow R, \Env, K), H \leadsto \Eval(X, \Env, P), H'} \and
+	\end{mathpar}
+	\caption{Abstract Machine Transition: Eval}
+        \label{fig:eval}
+\end{figure}
+
+\begin{figure}
+	\begin{mathpar}
+		\inferrule{\Lookup(K, H) = KCell}{\Apply(KLookup~ K, V), H \leadsto \Apply(KCell, V), H} \and
+		\inferrule{ }{\Apply(\KLet~A~\Env~C~K, V), H \leadsto \Eval(C, \Env[A := V], K), H'} \and		
+                \inferrule{\Lookup(V, H) = \Clos~\Env'~N~C \and \Alloc(\KApp_1~\Env'~N~C~K, H) = (P', H')}{\Apply(\KApp_0~\Env~X~K, V), H \leadsto \Eval(X, \Env, P'), H'} \and
+		\inferrule{ }{\Apply(\KApp_1~\Env~N~C~K, V), H \leadsto \Eval(C, \Env[N := V], K), H'} \and
+		\inferrule{\Lookup(K, H) = KCell \and \Alloc(\KProd_1~V~\Env~K, H) = (P', H')}{\Apply(\text{KProd0}~\Env~R~K, V), H \leadsto \Apply(KCell, P'), H'} \and
+		\inferrule{\Lookup(K, H) = KCell \and \Alloc(\VProd~L~V, H) = (P, H')}{\Apply(\KProd_1~L~K, V), H \leadsto \Apply(KCell, P), H'} \and
+		\inferrule{\Lookup(V, H) = (\VProd~X~Y)}{\Apply(\KZro~K, V), H \leadsto \Apply(KLookup~ K, X), H'} \and
+		\inferrule{\Lookup(V, H) = (\VProd~X~Y)}{\Apply(\KFst~K, V), H \leadsto \Apply(KLookup~ K, Y), H'} \and
+		\inferrule{\Lookup(K, H) = KCell \and \Alloc(\VLeft~V, H) = (P', H')}{\Apply(\KLeft~K, V), H \leadsto \Apply(KCell, P'), H'} \and
+		\inferrule{\Lookup(K, H) = KCell \and \Alloc(\VRight~V, H) = (P', H')}{\Apply(\KRight~K, V), H \leadsto \Apply(KCell, P'), H'} \and
+		\inferrule{\Lookup(V, H) = \VLeft~V'}{\Apply(\KCase~\Env~\mathit{LN}~L~\mathit{RN}~R~K, V), H \leadsto \Eval(L, \Env[\mathit{LN} := V'], K), H} \and
+		\inferrule{\Lookup(V, H) = \VRight~V'}{\Apply(\KCase~\Env~\mathit{LN}~L~\mathit{RN}~R~K, V), H \leadsto \Eval(R, \Env[\mathit{RN} := V'], K), H} \and
+	\end{mathpar}
+	\caption{Abstract Machine Transition: Apply}
+        \label{fig:apply}
+\end{figure}
+
+\begin{figure}
+	\begin{tabular}{\mytableshape}
+		Continuation & $K$ & $::=$ & $P \langle \KCell \rangle$ \\
+		
+		KCell & & $::=$ & $
+		\Done \mid
+		KLookup~K~ \mid
+		\KLet~N~\Env~C~K \mid
+		\KApp_0~\Env~C~K \mid
+		\KApp_1~\Env~N~C~K \mid
+		\KProd_0~\Env~C~K \mid
+		\KProd_1~V~K \mid
+		\KZro~K \mid
+		\KFst~K \mid
+		\KLeft~K \mid
+		\KRight~K \mid
+		\KCase~\Env~N~C~N~C~K $ \\
+		
+		Value & $V$ & $::=$ & $P\langle \VCell \rangle$ \\
+		VCell & & $::=$ & $
+		\Clos~\Env~N~E \mid
+		\VProd~V~V \mid
+		\VLeft~V \mid
+		\VRight~V $ \\
+		
+		Environment & $\Env$ & ::= & $[(N, V)]$ \\
+		State & & ::= & $\Eval~E~\Env~K \mid \Apply~KCell~V $ \\
+	\end{tabular}
+	\caption{Definitions for the CEK Machine}
+        \label{fig:hdefs}
+\end{figure}
+\begin{figure}
+	\begin{mathpar}
+		\inferrule{ }{\text{State} \leadsto \text{State}} \and
+		\inferrule{ }{\Eval(N, \Env, K) \leadsto \Apply(K, \Env(N))} \and
+		\inferrule{ }{\Eval(\sLet~A=B~\sIn~C, \Env, K) \leadsto \Eval(B, \Env, \KLet~A~K~C~\Env)} \and
+		\inferrule{ }{\Apply(\KLet~A~\Env~C~K, V) \leadsto \Eval(C, \Env[A := V], K)} \and
+		\inferrule{ }{\Eval(\backslash N. C, \Env, K) \leadsto \Apply(K, \Clos~\Env(\text{fv})\cdots N~C)} \and
+		\inferrule{ }{\Eval(F(X), \Env, K) \leadsto \Eval(F, \KApp_0~K~X)} \and
+		\inferrule{ }{\Apply(\KApp_0~\Env~X~K, \Clos~\Env'~N~C) \leadsto \Eval(X, \Env, \KApp_1~\Env'~N~C~K)} \and
+		\inferrule{ }{\Apply(\KApp_1~\Env~N~C~K, V) \leadsto \Eval(C, \Env[N := V], K)}
+		\inferrule{ }{\Eval((L, R), \Env, K) \leadsto \Eval(L, \Env, \KProd_0~K~R)} \and
+		\inferrule{ }{\Apply(\text{KProd0}~\Env~R~K, V) \leadsto \Eval(R, Env, \KProd_1~V~K)} \and
+		\inferrule{ }{\Apply(\KProd_1~L~K, V) \leadsto \Apply(K, \VProd~L~V)} \and
+		\inferrule{ }{\Eval(X.0, \Env, K) \leadsto \Eval(X, \Env, \KZro~K)} \and
+		\inferrule{ }{\Apply(\KZro~K, \VProd~X~Y) \leadsto \Apply(K, X)} \and
+		\inferrule{ }{\Eval(X.1, \Env, K) \leadsto \Eval(X, \Env, \KFst~K)} \and
+		\inferrule{ }{\Apply(\KFst~K, \VProd~X~Y) \leadsto \Apply(K, Y)} \and
+		\inferrule{ }{\Eval(\sLeft~X, \Env, K) \leadsto \Eval(X, \Env, \KLeft~K)} \and
+		\inferrule{ }{\Apply(\KLeft~K, V) \leadsto \Apply(K, \VLeft~V)} \and
+		\inferrule{ }{\Eval(\sRight~X, \Env, K) \leadsto \Eval(X, \Env, \KRight~K)} \and
+		\inferrule{ }{\Apply(\KRight~K, V) \leadsto \Apply(K, \VRight~V)} \and
+		\inferrule{ }{\Eval(\sCase~X~\sOf~\sLeft~LN\Rightarrow L~||~\sRight~RN\Rightarrow R, \Env, K) \leadsto \Eval(X, \Env, \KCase~\mathit{LN}~L~\mathit{RN}~R~\Env)} \and
+		\inferrule{ }{\Apply(\KCase~\Env~\mathit{LN}~L~\mathit{RN}~R~K, VLeft V) \leadsto \Eval(L, \Env[\mathit{LN} := V], K)} \and
+		\inferrule{ }{\Apply(\KCase~\Env~\mathit{LN}~L~\mathit{RN}~R~K, VRight V) \leadsto \Eval(R, \Env[\mathit{RN} := V], K)} \and
+	\end{mathpar}
+	\caption{Abstract Machine Transition: No Pointer}
+	\label{fig:apply}
+\end{figure}
+
+\begin{figure}
+	\begin{mathpar}
+		\inferrule{ }{\text{State}, H \leadsto \text{State}, H} \and
+		\inferrule{ \Lookup(K, H) = KCell }{\Eval(N, \Env, K), H \leadsto \Apply(KCell, \Env(N)), H} \and
+		\inferrule{\Alloc(\KLet~A~K~C~\Env, H) = (P, H')}{\Eval(\sLet~A=B~\sIn~C, \Env, K), H \leadsto \Eval(B, \Env, P), H'} \and
+		\inferrule{ \Lookup(K, H) = KCell \and \Alloc(\Clos~\Env(\text{fv})\cdots N~C, H) = (P, H')}{\Eval(\backslash N. C, \Env, K), H \leadsto \Apply(KCell, P), H'} \and
+		\inferrule{\Alloc(\KApp_0~K~X, H) = (P, H')}{\Eval(F(X), \Env, K), H \leadsto \Eval(F, P), H'} \and
+		\inferrule{\Alloc(\KProd_0~K~R, H) = (P, H')}{\Eval((L, R), \Env, K), H \leadsto \Eval(L, \Env, P), H'} \and
+		\inferrule{\Alloc(\KZro~K, H) = (P, H')}{\Eval(X.0, \Env, K), H \leadsto \Eval(X, \Env, P), H'} \and
+		\inferrule{\Alloc(\KFst~K, H) = (P, H')}{\Eval(X.1, \Env, K), H \leadsto \Eval(X, \Env, P), H'} \and
+		\inferrule{\Alloc(\KLeft~K, H) = (P, H')}{\Eval(\sLeft~X, \Env, K), H \leadsto \Eval(X, \Env, P), H'} \and
+		\inferrule{\Alloc(\KRight~K, H) = (P, H')}{\Eval(\sRight~X, \Env, K), H \leadsto \Eval(X, \Env, P), H'} \and
+		\inferrule{\Alloc(\KCase~\mathit{LN}~L~\mathit{RN}~R~\Env, H) = (P, H')}{\Eval(\sCase~X~\sOf~\sLeft~LN\Rightarrow L~||~\sRight~RN\Rightarrow R, \Env, K), H \leadsto \Eval(X, \Env, P), H'} \and
+	\end{mathpar}
+	\caption{Abstract Machine Transition: Eval}
+        \label{fig:eval}
+\end{figure}
+
+\begin{figure}
+	\begin{mathpar}
+		\inferrule{\Lookup(K, H) = KCell}{\Apply(KLookup~ K, V), H \leadsto \Apply(KCell, V), H} \and
+		\inferrule{ }{\Apply(\KLet~A~\Env~C~K, V), H \leadsto \Eval(C, \Env[A := V], K), H'} \and		
+                \inferrule{\Lookup(V, H) = \Clos~\Env'~N~C \and \Alloc(\KApp_1~\Env'~N~C~K, H) = (P', H')}{\Apply(\KApp_0~\Env~X~K, V), H \leadsto \Eval(X, \Env, P'), H'} \and
+		\inferrule{ }{\Apply(\KApp_1~\Env~N~C~K, V), H \leadsto \Eval(C, \Env[N := V], K), H'} \and
+		\inferrule{\Lookup(K, H) = KCell \and \Alloc(\KProd_1~V~\Env~K, H) = (P', H')}{\Apply(\text{KProd0}~\Env~R~K, V), H \leadsto \Apply(KCell, P'), H'} \and
+		\inferrule{\Lookup(K, H) = KCell \and \Alloc(\VProd~L~V, H) = (P, H')}{\Apply(\KProd_1~L~K, V), H \leadsto \Apply(KCell, P), H'} \and
+		\inferrule{\Lookup(V, H) = (\VProd~X~Y)}{\Apply(\KZro~K, V), H \leadsto \Apply(KLookup~ K, X), H'} \and
+		\inferrule{\Lookup(V, H) = (\VProd~X~Y)}{\Apply(\KFst~K, V), H \leadsto \Apply(KLookup~ K, Y), H'} \and
+		\inferrule{\Lookup(K, H) = KCell \and \Alloc(\VLeft~V, H) = (P', H')}{\Apply(\KLeft~K, V), H \leadsto \Apply(KCell, P'), H'} \and
+		\inferrule{\Lookup(K, H) = KCell \and \Alloc(\VRight~V, H) = (P', H')}{\Apply(\KRight~K, V), H \leadsto \Apply(KCell, P'), H'} \and
+		\inferrule{\Lookup(V, H) = \VLeft~V'}{\Apply(\KCase~\Env~\mathit{LN}~L~\mathit{RN}~R~K, V), H \leadsto \Eval(L, \Env[\mathit{LN} := V'], K), H} \and
+		\inferrule{\Lookup(V, H) = \VRight~V'}{\Apply(\KCase~\Env~\mathit{LN}~L~\mathit{RN}~R~K, V), H \leadsto \Eval(R, \Env[\mathit{RN} := V'], K), H} \and
+	\end{mathpar}
+	\caption{Abstract Machine Transition: Apply}
+        \label{fig:apply}
+\end{figure}
