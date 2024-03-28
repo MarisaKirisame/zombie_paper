@@ -1,99 +1,10 @@
-% \section{Formal Guarantee}
-% \subsection{Correctness}
-% \todo{the cek in this section does not use heap at all! in fact I dont think we really need the heap version. I think we should rename the cek with pointer into cekm, and explain it only for introductory purpose (or not at all).}
-% \subsubsection{Tock Tree Setup}
-% In order to reason about the CEKR machine, we needed to reason about nodes in the tock tree, even if such node is evicted.
-
-% While we can reify the tock tree insertions into a list, forming into a trace semantic and reasoning on top of the list, it is easier to allow querying the tock tree for evicted data. In our formalization, we assume that the tock tree does not really evict; However, each node is now paired with a boolean bit, indicating whether it had been evicted or not. We will then have a function query\_ghost : (TockTree, Tock) -> (Bool, Node) that return the Node, along with a boolean indicating whether the node is present.
-
-% \subsubsection{CEK/CEKR connection}
-% With query\_ghost, we can connect value from the CEKR machine to the CEK machine. More specifically, we can now define a Sem(standing for semantic) function, that convert a CEKR-value to a CEK-value under a given tock tree. The function work by recursively calling query\_ghost.
-
-
-% Like wise, we can define equality on continuation, and on state. Additionally, we define 'equality modulo eviction' between two Tock Tree, to be that the two Tock Tree contain the same node, but they might be under different eviction status. Formally speaking, forall Tock, the two Tock Tree must return two equal node, but the eviction bit might differ.
-
-% \subsubsection{Ghost Stepping}
-
-% Alongside query\_ghost, is the idea of ghost\_stepping \todo{this name suck}. Just like the state transition on CEKR, ghost\_stepping is also a transition on State, TockTree tuple. However, unlike the classical state transition, ghost\_stepping use query\_ghost in place of query, which retrieve the exact node, even if the node is evicted. ghost\_stepping is unimplementable, but just like our formalization of Tock Tree and query\_ghost, it is purely for formalization purpose. As ghost\_step does not need any replay, it does not have the replay continuation. ghost\_step serve as a bridge between CEK and CEKR, connecting the two semantic. Once this is completed, we can only talk about correspondence between ghost\_step and normal step, inside CEKR, without mentioning the CEK machine at all.
-
-% Lemma: CEK stepping is deterministic.
-
-% proof: trivial.
-
-% Lemma: Ghost stepping is deterministic.
-
-% proof: trivial. note that this require the tock tree being deterministic itself. write down this requirement in the right place.
-
-% Lemma: Ghost stepping is congruent under eqmodev.
-
-% proof: ghost stepping do not read from eviction status.
-
-% \subsubsection{Well Foundness}
-% A tock tree T is well-founded \todo{is this the right word?} if:
-% \begin{enumerate}
-% 	\item The left most node exist and is not be evicted. (root-keeping)
-% 	\item Forall node N inserted at tock T, N only refer to tock < T. (tock-ordering)
-% 	\item Forall node pair L R (R come right after L in the tock tree), if (L.state, T) ghost\_step to (X, XT), X = R.state and T eqmodev XT. (replay-correct)
-% 	\item Additionally, a (state, tock tree) pair is well-founded if state is in the tock tree. (state-recorded)
-% \end{enumerate}
-
-% Lemma: ghost stepping preserve well-foundedness.
-% proof:
-% \begin{enumerate}
-% 	\item root-keeping is maintained by the tock tree implementation and is a requirement.
-% 	\item tock-ordering is maintained - check each insert.
-% 	\item replay-correct is maintained: the transit-from state must be on the tock tree due to state-recorded. If it is not the rightmost case, due to replay-correct we had repeatedly inserted a node. Since ghost-stepping is congruent under eqmodev replay-correct is maintained. If it is the rightmost state, a new node is inserted. All pair except the last pair is irrelevant to the insertion, because due to tock-ordering they cannot refer to it. For the last pair, ghost-step must reach the same state due to determinism in ghost-stepping.
-% 	\item state-recorded is maintained: we just inserted said state.
-% \end{enumerate}
-
-% \subsubsection{Main Theorem}
-% Theorem: under well-foundness, CEK-step and ghost-stepping preserve equivalence.
-
-% Formally: given CEK-step X, CEKR state Y, if (X, H) = (Y, T) and T is well-founded, (X, H) $\leadsto$ (X', H'), (Y, T) $\leadsto$ (Y', T'), (X', H') = (Y', T')
-
-% proof: wellfoundness ensure we do not write to old state and replace old node with other values. other part of proof is trivial.
-
-% The above theorem establish a connection between the CEK machine and the CEKR machine, by ignoring the replaying aspect of the CEKR machine, and only using it as if all values are stored in the tock tree (even though some nodes might already be evicted!). We will next connect ghost-stepping with regular stepping in the CEKR machine.
-
-% Lemma: stepping without changing rk is the same as ghost-stepping
-
-% proof: trivial
-
-% Lemma: if stepping add to rk, the moment it change back, is the same as single ghost-stepping
-
-% proof: due to well-foundness the cell RApply recieve must be the same as the same cell on the tock tree but inaccessible. Note that the stepping made here cannot add new node as it is bounded by the tock on the replay continuation, which is on the tock tree.
-
-% Lemma: it must change back
-
-% proof: by lexicalgraphical ordering on rk and on state
-
-% Theorem: X, rk, tt step-star Y, rk, tt' -> X tt ghost-step-star Y, tt'', with tt' eqmodev tt'
-
-% proof: the step-star can be decomposed into sequence of no-rk-change step, or a push, with multiple step, and finally a pop. either case is covered by a lemma above.
-
-% \subsection{Performance}
-% \subsubsection{Pebble Game}
-
-
-% Let $G=(V,E)$ be a directed acyclic graph with maximum in-degree of $k$, where $V$ is a set of vertices and $E$ is a set of ordered pairs $(v_1, v_2)$ of vertices.
-
-% For each $v\in V$, we can
-% \begin{itemize}
-% 	\item place a pebble on it if $\forall u\in V$ that $(u, v)\in E$, $u$ has a pebble, which means all predecessors of $v$ have pebbles.
-% 	\item remove the pebble on it if $v$ already has a pebble.
-% \end{itemize}
-
-% The goal is to place a pebble on a specific vertex and minimize the number of pebbles simultaneously on the graph during the steps.
-
-
-
-% \subsubsection{Translation to pebble game}
-% \subsubsection{Theorem}
-% memory consumption is linear to amount of object with O(1) access cost
-
 \section{Formal Guarantee}
+In this section we prove that CEKR preserve(step to same value as CEK), progress(always step when CEK can step), and efficient. 
 \subsection{Correctness}
-\todo{the CEK in this section does not use heap at all! In fact, I do not think we really need the heap version. I think we should rename the CEK with a pointer into CEKM, and explain it only for introductory purposes (or not at all).}
+To prove that CEKR is correct (progress and preservation), we first define a transition on CEKR, GhostStepping. GhostStepping transit by assuming lookup always return the matching value, even if the value is evicted. Essentially, GhostStepping allow us to connect the CEKR machine with the CEK machine. 
+
+We then define another transition, OverStepping. A single step in OverStepping ignore all replay requested by lookup failure, continuing execution until the replays issued by the lookups had been resolved and returned. Our main theorem is a correspondence between GhostStepping and OverStepping, both of which happens on the CEKR Machine.
+
 \subsubsection{Tock Tree Setup}
 To reason about the CEKR machine, we needed to reason about nodes in the tock tree, even if such node is evicted.
 
@@ -108,9 +19,10 @@ Using QueryGhost, we can define a function, LookupGhost, that return the Cell co
 		\inferrule{ }{ LookupGhost : (Tock, TockTree) \to CEK-Value | CEK-Continuation } \and
 		\inferrule{ QueryGhost(t, tt) = (\_, Node(Just x, st)) }{LookupGhost(t, tt) = x } \and
 		\inferrule{ }{Sem : (CEKR-Value|CEKR-Continuation, TockTree) \to CEK-Value | CEK-Continuation} \and
-		\inferrule{ LookupGhost(t, tt) = VProd(l, r) }{Sem(t, tt) = VProd(Sem(l, tt), Sem(r, tt))}
-		\inferrule{ }{Convert : CEKR-Machine \to CEK-State} \and
-		\inferrule{ }{ }
+		\inferrule{ LookupGhost(t, tt) = VProd(l, r) }{Sem(t, tt) = VProd(Sem(l, tt), Sem(r, tt))} \and
+		\inferrule{ }{Convert : CEKR-State, TockTree \to CEK-State} \and
+		\inferrule{ }{Convert(Eval(C, Env, K, t), tt) = Eval(C, Env[x = Sem(x, tt)...], Sem(K, tt))} \and
+		\inferrule{ }{Convert(Apply(K, cell, t), tt) = Apply(Sem(K, tt), Sem(cell, tt))}
 	\end{mathpar}
 \end{figure}
 \subsubsection{Ghost Stepping}
@@ -144,34 +56,54 @@ proof:
     \item state-recorded is maintained: we just inserted said state.
 \end{enumerate}
 
-\subsubsection{Main Theorem}
+\subsubsection{CEK and the CEKR}
 Theorem: under well-foundness, CEK-step and ghost-stepping preserve equivalence.
 
-Formally: given CEK State X X', CEKR Machine M, if NoReplay(M) and Convert(M) = X and T is well-founded, X $\leadsto$ X', and (M) $\leadsto$ (M'), NoReplay(M') and Convert(M') = X'.
+Formally: given CEK State X X', CEKR Machine ((s, NoReplay), tt), Convert(s, tt) = X and T is well-founded, X $\leadsto$ X', then: ((s, NoReplay), tt) $\leadsto$ ((s', NoReplay), tt'), such that Convert(s', tt') = X'.
+
+\todo{is this theorem actually needed? or do we need a version with arbitrary replaycontinuation, which allow return as well? formalizing that is a bit hard}
 
 proof: wellfoundness ensures we do not write to the old state and replace the old node with other values. other part of the proof is trivial.
 
 The above theorem establishes a connection between the CEK machine and the CEKR machine, by ignoring the replaying aspect of the CEKR machine, and only using it as if all values are stored in the tock tree (even though some nodes might already be evicted!). We will next connect ghost-stepping with regular stepping in the CEKR machine.
 
-Lemma: stepping without changing rk is the same as ghost-stepping.
-Formally: if ((S, rk), tt) $\leadsto$ (S', rk, tt'), ((S, rk), tt) GhostStepTo ((S', rk), tt').
-proof: trivial
+\subsubsection{Over-Stepping}
+Our normal CEKR transition, however, does not one-to-one preserve with CEK transition, as it also include transition that failed and request Replay. To overcome this, we introduced Over-Stepping \todo{name suck}, which take a step ignoring replay and what happens inside replay, in resemblance to Step-Over in debugger. Formally speaking, ((S, rk), tt) step to ((S', rk'), tt') if len(rk) >= len(rk'), ((S, rk), tt) step-star to ((S'', rk''), tt''), with all len(rk'') > len(rk), and ((S'', rk''), tt'') step to ((S', rk'), tt'). 
 
-Lemma: if stepping add to rk, the moment it changes back, is the same as single ghost-stepping
+Theorem(Preservation): Under Well Founded Tock Tree, GhostStepping and OverStepping preserve.
 
-proof: due to well-foundness the cell RApply receives must be the same as the same cell on the tock tree but inaccessible. Note that the stepping made here cannot add a new node as it is bounded by the tock on the replay continuation, which is on the tock tree.
+Formally: if tt is WellFounded, ((S, rk), tt) GhostStep to ((S', rk'), tt'), and ((S, rk), tt) OverStep to ((S'', rk''), tt''), then S' = S'', rk' = rk'', and tt' eqmodev tt''.
+Proof: We induct on the number of transition OverStep actually make. It cannot be 0, so the base case start at 1.
+For the base case, there can be no replay, which mean the query must succeed, and GhostStepping match this single CEKR-step.
+For the inductive case, where there are n+1 transition, the query must fail (otherwise the transition amount is 1, and it is the base case), so rk become rk\_ = (Replaying t rh rk). ignoring the initial failing transition, the rest of the transition is a sequence of Over-Stepping that start with rk\_, with the ending one decreasing rk\_ back into rk, where the rest maintain rk\_. With our inductive hypothesis, this sequence of Over-Stepping can be seen as a sequence of Ghost-Stepping. Then, by the well-foundness of the tock tree, this query-failure, followed by ghost-stepping preserving rk\_, followed by a return ghost-stepping, is equivalent to a lookup that had not failed, so a single ghost stepping.
 
-Lemma: it must change back
+Theorem(Progress): Under Well Founded Tock Tree, OverStepping is not stuck if GhostStepping is not stuck.
 
-proof: by lexicographical ordering on rk and on state
+Formally, if tt is WellFounded, ((S, rk), tt) OverStepping to M if ((S, rk), tt) GhostStep to M'.
 
-Theorem: X, rk, tt step-star Y, rk, tt' -> X tt ghost-step-star Y, tt'', with tt' eqmodev tt'
+Note that our Machine can get stuck as we are untyped. To overcome this, we piggyback the concept of progress on GhostStepping. Maybe our Preservation and Progress proof should be merged as one.
 
-proof: the step-star can be decomposed into a sequence of no-rk-change steps, or a push, with multiple steps, and finally a pop. either case is covered by a lemma above.
+Proof: 
+
+If our query succeed, our theorem trivially hold, as OverStepping only consist of a single CEKR-step.
+Let's consider the case where it failed and request a replay to tock t. Let's called this ReplayContinuation we transit to rk. If overstepping is stuck, either there is infinitely many CEKR step with ending ReplayContinuation len >= len(rk), or CEKR is stuck during replay to tock t. But that CEKR-step had been played before, and our tock tree is well founded, so it is impossible. The only case that remain is the infinitely many CEKR step.
+
+In such case, for each CEKR-Machine in the infinitely long transition, extract out all the request tock from the ReplayContinuation, forming a list of increasing tocks, and with the head of the list being the tock from the CEKR-State.
+
+We can define a ordering on this list of tocks:
+\begin{enumerate}
+	\item t:ts < ts
+	\item a > b $\to$ a:ts < b:ts
+	\item x < y $\to$ t:x < t:y
+	\item a < b \and b < c $\to$ a < c
+\end{enumerate}
+It is clear that this relation is transitive and antisymmetric. Additionally for any tock list ending with X, there are a finite amount of smaller elements ending with X, as the list must contain an increasing number of tocks.
+
+However, each CEKR step in the infinite sequence must decrease on this list, and must also end with X (otherwise overstepping can produce and is not stuck), so we had reached a contradiction.
 
 \subsection{Performance}
 \subsubsection{Pebble Game}
-
+\todo{what should we say? just delete the section?}
 
 Let $G=(V,E)$ be a directed acyclic graph with a maximum in-degree of $k$, where $V$ is a set of vertices and $E$ is a set of ordered pairs $(v_1, v_2)$ of vertices.
 
@@ -183,8 +115,6 @@ For each $v\in V$, we can
 
 The goal is to place a pebble on a specific vertex and minimize the number of pebbles simultaneously on the graph during the steps.
 
-
-
-\subsubsection{Translation to pebble game}
 \subsubsection{Theorem}
-memory consumption is linear to the number of object with O(1) access cost
+Lemma: memory consumption is linear to number of unevicted nodes in the tock tree, and to the replay continuation length.
+Proof: observe that only these two is unbounded in CEKR Machine, and observe that each node in the tock tree/replay continuation is of constant size.

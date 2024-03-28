@@ -33,21 +33,27 @@ To exploit the temporal/spatial locality, and the 20-80 law of data access (cite
 This design grants frequently accessed data faster access time. Crucially, consecutive insertion takes amortized constant time.
 
 The tock tree is then modified such that each node contains an additional parent and child pointer. The pointers form a list, which maintains a sorted representation of the tock tree. On a query, the tock tree does a binary search to find the innermost node, then follows the parent pointer if that node is greater than the key. This process is not recursive: the parent pointer is guaranteed to have a smaller node than the input key, as the binary search will yield the exact value, or the largest value less than the input, or the smallest value greater than the input.
-\subsection{Picking Uncomputation Candidate}
-\subsection{Eviction}
-This allows us to remove any non-leftmost node from the tock tree. After the removal, the query that originally returned the removed node will return the node slightly earlier than that, which we can then replay to regenerate the removed node. In fact, this is the implementation of uncomputation in our system, and any non-leftmost node can be removed, to save memory at any given time.
-\todo{move to implementation section}
-
-Note that the guarantee we prove is independent of our policy that decides which value to uncompute (eviction policy).
-\subsubsection{Union Find}
-\subsubsection{The Policy}
-\subsubsection{GDSF}
+\subsection{IO}
+While our language is purely functional, we allow arbitrary IO effect directly. As IO is not referentially transparent, such effect cannot be replayed safely, and any node that executed a IO effect cannot be evicted, and therefore should not be considered for eviction.
 \subsection{Language Implementation}
-For implementation simplicity and interoperability with other programs, zombie is implemented as a C++ library, and the Cells are ref-counted. Our evaluation compiles the program from the applicative programming language formalized above(give name), to C++ code.
+For implementation simplicity and interoperability with other programs, zombie is implemented as a C++ library, and the Cells are ref-counted. Our evaluation compiles the program from the applicative programming language formalized above(give name), to C++ code. The program is linked with mimalloc, with malloc and free being hooked to track the current memory consumption. Between every state transition, we check if the memory consumption is above a given memory limit. If so, we evict from the tock tree until it is no longer the case.
 \subsection{Optimization}
 \subsubsection{Fast access path}
 Querying the tock tree for every value is slow, as it requires multiple pointer traversal.
 To combat this, each Value is a Tock paired with a weak reference, serving as a cache, to the Cell. When reading the value, if the weak reference is ok, the value is returned immediately. Otherwise, the default path is executed, and the weak reference is updated to point to the new Result.
 \subsubsection{Loop Unrolling}
-To avoid the frequent creation of node objects, and their insertion into the tock tree, multiple state transition is packed into one.
-\subsection{Bit counting}
+Each node in the tock tree is quite heavy. It contain multiple pointers (from the tock tree data structure), with the next state, which is a function pointers with a list of input tocks. As each node only store 0-1 objects, this pair each object with a high overhead. To combat this, and to avoid frequent insertion of node objects into tock tree, multiple state transition is packed into one. This mean that each node now store a vector of cells, with the next state unchanged. In our implementation, each node store 32 objects.
+\subsection{Picking Uncomputation Candidate}
+\subsubsection{The Policy}
+In principle, we want to find the node that is the quickest to replay, take the most space, and is the stalest, to evict. More specifically, we want to find the node with the highest score = SpaceConsumption * TimeSinceLastAccess / ComputeTime.
+
+To achieve this, for each node, we measure and store it's space consumption, time taken to execute, and last access time. Whenever a object is accessed, we update the corresponding node's last access time accordingly.
+\subsubsection{GD}
+As doing a linear search to find the node with the highest score is computationally infeasible, requiring a linear amount of work to free up a constant amount of memory, instead we adopt the greedy dual technique in caching.
+
+Greedy dual is a technique in caching that approximate a eviction policy of X * staleness for arbitrary constant X.
+It's implementation consists of a priority heap alongside a value L.
+L represent roughly, the total amount of 'compute' that had been evicted.
+L start at 0, increasing by X whenever a value is evicted, and whenever an object is inserted into the cache, it have the priority of X + L.
+\subsubsection{Union Find}
+We want to avoid long, recursive replay, and instead prefer replay to complete as soon as possible. This suggest that our compute cost should be recursive: if replaying to node A require replaying node B, A's cost should also include B's cost. As tracking this require huge computational resource, we instead use a union find data structure to approximate recursive cost. On a high level, when node A and node B is evicted, and A depend on B, A and B should be in the same equivalent class.

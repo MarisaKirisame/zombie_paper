@@ -209,16 +209,15 @@ In order to make this operation efficient, the tock tree is organized as a binar
 \end{figure}
 
 \subsection{Replay Continuation}
-In order to replay for a cell at a tock t, we need to store (1) the tock t that we replay to, so we can stop once the value corresponding to t is found and (2) the original state before replaying, resume execution at that point, so we can stop once t is found, and the original state before replaying, so we can resume execution at that point. 
-This is essentially a continuation, which we call the replay continuation (RK).
+When a query to the tock tree fail, meaning that the return node is not an exact match, and therefore does not include the requested tock, replay is needed. However, in order to replay, we need to store the current context, so we know which tock we are looking for, and how to resume after we found said value. We call said information a ReplayContinuation(RK). Since replay is recursive, ReplayContinuation form a stack.
 
-Note that it is different from the normal continuation in the following way:
+The ReplayContinuation store three things:
 \begin{enumerate}
-    \item continuation is an expr with a hole of type expr, while replay continuation is a state with a hole of type cell
-    \item there are fewer replay continuation types than continuation: this is because only the state that lookup a cell needs a replay continuation; a state that does not, does not need a replay, and so does not need replay continuation. An example is Eval of a function application, as it only focuses on the function, pushing the arguments onto the continuation stack. 
+	\item The tock we are looking for
+	\item A ReplayHole, which is a state with a Hole. When the tock is found, it will be plugged into the Hole to continue execution.
+	\item The rest of the ReplayContinuation.
 \end{enumerate}
 
-Note that, during the replaying process, more lookups might be issued, and those lookups might need more replay - replay is recursive. Just like the classical continuation at the CEK machine, the Replay Continuation needs to be recursive and form a stack as well.
 \begin{figure}
     \begin{tabular}{p{10em} p{2.6em} p{1em} p{0.45\textwidth}}
         ReplayContinuation & RK & ::= & NoReplay | Replaying Tock RH RK | \\
