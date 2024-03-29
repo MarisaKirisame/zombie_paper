@@ -103,8 +103,6 @@ However, each CEKR step in the infinite sequence must decrease on this list, and
 
 \subsection{Performance}
 \subsubsection{Pebble Game}
-\todo{what should we say? just delete the section?}
-
 Let $G=(V,E)$ be a directed acyclic graph with a maximum in-degree of $k$, where $V$ is a set of vertices and $E$ is a set of ordered pairs $(v_1, v_2)$ of vertices.
 
 For each $v\in V$, we can
@@ -114,7 +112,7 @@ For each $v\in V$, we can
 \end{itemize}
 
 The goal is to place a pebble on a specific vertex and minimize the number of pebbles simultaneously on the graph during the steps.
-
+\subsubsection{Converting CEKR Program into Pebble Game}
 \subsubsection{Theorem}
-Lemma: memory consumption is linear to number of unevicted nodes in the tock tree, and to the replay continuation length.
-Proof: observe that only these two is unbounded in CEKR Machine, and observe that each node in the tock tree/replay continuation is of constant size.
+Theorem: for a program that execute for N step, there exists a eviction strategy such that it consume at most O(n / log(n)) memory.
+Proof: 

@@ -1,33 +1,31 @@
-\section{Eval(3pg)}
-\subsection{Small Program}
-List Program
+\section{Evaluation}
+\subsection{Machine}
+\todo{pavel - what is the spec of nightly?}
+\subsection{Benchmark}
+Our benchmark consists of 10 program:
+\begin{enumerate}
+	\item taba, the 'there and back again' pattern discussed at overview.
+	\item rbt, which implement a red black tree, and repeatedly insert into it.
+	\item mergesum, which generate a list of number, then computing a new list of half the length by summing up two adjacent numbers. The process is repeated until a single number is computed.
+	\item ski, a SKI Combinator calculus evaluator.
+	\item list, create a list, then apply classical list manipulation transform (zip, map), on it.
+	\item conv, create a list then apply convolution on it multiple time, and finally summing up all created list.
+	\item conv2d, create a list of list then apply 2d convolution on it multiple time, summing up all created list like above.
+	\item mergesort, create a list then sorting it.
+	\item vector, using radix tree to create a vector, then updating the vector.
+	\item fft, which use the vector implemented above, and implement the Fast Fourier Transform on it.
+\end{enumerate}
+\subsection{Evaluation Setup}
+Each program is tuned such that execution take 1-10 seconds (without any eviction).
 
-Pascal Triangle(2d, 3d)
+We ran the programs with two different setup:
+A baseline, which does not include any tock tree data structure or eviction code, for comparison.
+And Zombie.
 
-Interpreter for LC
+For Zombie, we execute the program once, without any eviction, and record down the highest memory consumption, alongside the runtime.
+We then execute the program with a memory limit being a decreasing ratio of said program, starting from 0.9 to 1e-4.
+When the program execution exceed 100x the zombie runtime without eviction, we consider it to be thrashing, and stopped executing said program, skipping all untried smaller ratio as well.
 
-PE for LC
-
-Interpreter for IMP
-
-Compiler from IMP to LC
-
-String Serialization and Deserialization
-
-String Compression and Uncompression
-
-Parsing and Unparsing
-
-String = radix-tree/flat-array/linked-list
-
-KD-tree, on shortest distance and on ray tracing
-
-statistic \todo{ask}
-
-FFT
-
-Graph - DFS BFS MCTS
-
-\todo{where does undo redo fit in?}
-\subsection{Composite Program}
-compose the programs to form larger program
+\subsection{Result}
+\subsection{Good Case Study: TABA}
+\subsection{Bad Case Study: SKI}
