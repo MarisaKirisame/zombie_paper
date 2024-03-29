@@ -92,10 +92,10 @@ In such case, for each CEKR-Machine in the infinitely long transition, extract o
 
 We can define a ordering on this list of tocks:
 \begin{enumerate}
-	\item t:ts < ts
-	\item a > b $\to$ a:ts < b:ts
-	\item x < y $\to$ t:x < t:y
-	\item a < b \and b < c $\to$ a < c
+	\item $t:ts < ts$
+	\item $a > b \to a:ts < b:ts$
+	\item $x < y \to t:x < t:y$
+	\item $a < b \land b < c \to a < c$
 \end{enumerate}
 It is clear that this relation is transitive and antisymmetric. Additionally for any tock list ending with X, there are a finite amount of smaller elements ending with X, as the list must contain an increasing number of tocks.
 
