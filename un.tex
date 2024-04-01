@@ -62,7 +62,7 @@ The ReplayContinuation store a list of triplet:
         ReplayContinuation & R & ::= & [(Tock, RF, Tock)] \\
         ReplayFrame & RF & ::= & RFLookup V | \\
         & & & RFCase Env N C N C K | \\
-        & & & RFZro K | RKFst K | \\
+        & & & RFZro K | RFFst K | \\
         & & & RFApp Env E K \\
         Replay & R & ::= & (State, R) \\
     \end{tabular}
@@ -93,9 +93,9 @@ The CEKR Machine executes by repeatedly computing the next node, and then applyi
 \begin{mathpar}
 \inferrule{ }{\CheckReturn: (t, node, r) \rightarrow RState} \and
 \inferrule{ }{\CheckReturn(t, (\bot, st), r) = st} \and
-\inferrule{t + 1 \neq t'}{\CheckReturn(t, (\_, st), []) = st} \and
-\inferrule{ }{\CheckReturn(t, (cell, st), (t + 1, rf):r) = \Return~ cell} \and
-\inferrule{t + 1 \neq t'}{\CheckReturn(t, (cell, st), (t', rf):r) = st} \and
+\inferrule{t+1 \neq t'}{\CheckReturn(t, (\_, st), []) = st} \and
+\inferrule{ }{\CheckReturn(t, (cell, st), (t+1, rf):r) = \Return~ cell} \and
+\inferrule{t+1 \neq t'}{\CheckReturn(t, (cell, st), (t', rf):r) = st} \and
 
 \inferrule{ }{\PostProcess: (t, node, r, TockTree) \rightarrow \Machine} \and
 \inferrule{ }{\PostProcess(t, node, r, T) = \CheckReturn(t, node, r), r, insert(T, t, node)} \and
@@ -103,7 +103,8 @@ The CEKR Machine executes by repeatedly computing the next node, and then applyi
 \inferrule{ }{ \Machine \leadsto_m Node : Prop } \and
 \inferrule{ \Eval(N, \Env, K, t), r, T \leadsto_n node }{ \Eval(N, \Env, K, t), r, T \leadsto \PostProcess(t, node, r, T) } \and
 \inferrule{\Apply(K, V, t), r, T \leadsto_n node }{ \Apply(K, V, t), r, T \leadsto \PostProcess(t, node, r, T)} \and
-\inferrule{ \Return~ cell, (t, RF, t'):r, T \leadsto_n node }{ Return~ cell, (t, RF, t'):r, T \leadsto PostProcess(t', node, r, T) } \and
+\inferrule{\Return~ cell, (t, RF, t'):r, T \leadsto_n node }{ Return~ cell, (t, RF, t'):r, T \leadsto PostProcess(t', node, r, T) } \and
+\inferrule{ t \neq 0 }{ st, r, T \leadsto st, r, evict(T, t) } \and
 \end{mathpar}
 
 The transition is now split into 3 different cases:
@@ -143,28 +144,28 @@ The transition is now split into 3 different cases:
 \end{figure}
 \begin{figure}
     \begin{mathpar}
-        \inferrule{T[K] = st}{\Apply(\KLookup K, V, t), r, T \leadsto st, (K, RFLookup V t):r, T} \and
+        \inferrule{T[K] = st}{\Apply(\KLookup K, V, t), r, T \leadsto st, (K, \RFLookup V t):r, T} \and
         \inferrule{T[K] = cell}{\Apply(\KLookup K, V, t), r, T \leadsto_n (\bot, \Apply(cell, V, t+1))} \and
         \inferrule{ }{\Apply(\KLet~ A~ \Env~ C~ K', V, t), r, T \leadsto_n (\bot, \Eval(C, Env[A := V], K', t+1))} \and
-        \inferrule{T[V] = st}{Apply(KApp0 Env X K, V, t), r, T \leadsto st, (V, RFApp Env X K t):r, T} \and
-        \inferrule{T[V] = \Clos Env' N C }{\Apply(\KApp0~ \Env~ X~ K', V, t), r, T \leadsto_n (KApp1 \Env' N C K', \Eval(X, Env, t+1, t+2))} \and
-        \inferrule{ }{\Apply(\KApp1 Env N C K', V, t), r, T \leadsto_n (Nothing, \Eval(C, Env[N := V], K', t+1))} \and
-        \inferrule{ }{\Apply(KProd0 Env R K, V, t), r, T \leadsto_n (KProd1 V Env K, \Eval(R, Env, t+1, t+2)) } \and
-        \inferrule{ }{\Apply(KProd1 L K, V, t), r, T \leadsto_n (\VProd L V, \Apply(K, t+1, t+2)) } \and
-        \inferrule{T[V] = st }{\Apply(KZro K, V, t), r, T \leadsto st, (V, RFZro K t):r, T} \and
-        \inferrule{T[V] = VProd X Y }{\Apply(KZro K, V, t), r, T \leadsto_n (\bot, \Apply(K, X, t+1))} \and
-        \inferrule{T[V] = st}{\Apply(KFst K, V, t), r, T \leadsto st, (V, RFFst K t):r, T} \and
-        \inferrule{T[V] = VProd X Y }{\Apply(KFst K, V, t), r, T \leadsto_n (\bot, \Apply(K, Y, t+1))} \and
+        \inferrule{T[V] = st}{Apply(\KApp_0 Env X K, V, t), r, T \leadsto st, (V, RFApp Env X K t):r, T} \and
+        \inferrule{T[V] = \Clos Env' N C }{\Apply(\KApp_0~ \Env~ X~ K', V, t), r, T \leadsto_n (\KApp_1 \Env' N C K', \Eval(X, Env, t+1, t+2))} \and
+        \inferrule{ }{\Apply(\KApp_1 Env N C K', V, t), r, T \leadsto_n (\bot, \Eval(C, Env[N := V], K', t+1))} \and
+        \inferrule{ }{\Apply(\KProd_0 Env R K, V, t), r, T \leadsto_n (\KProd_1 V Env K, \Eval(R, Env, t+1, t+2)) } \and
+        \inferrule{ }{\Apply(\KProd_1 L K, V, t), r, T \leadsto_n (\VProd L V, \Apply(K, t+1, t+2)) } \and
+        \inferrule{T[V] = st }{\Apply(KZro K, V, t), r, T \leadsto st, (V, \RFZro K t):r, T} \and
+        \inferrule{T[V] = \VProd X Y }{\Apply(\KZro K, V, t), r, T \leadsto_n (\bot, \Apply(K, X, t+1))} \and
+        \inferrule{T[V] = st}{\Apply(KFst K, V, t), r, T \leadsto st, (V, \RFFst K t):r, T} \and
+        \inferrule{T[V] = \VProd X Y }{\Apply(\KFst K, V, t), r, T \leadsto_n (\bot, \Apply(K, Y, t+1))} \and
     \end{mathpar}
     \caption{CEKR Transition: Apply}
 \end{figure}
 \begin{figure}
     \begin{mathpar}
-        \inferrule{ }{\Apply(KLeft K, V, t), r, T \leadsto_n (VLeft V, \Apply(K, t+1, t+2)) } \and
-        \inferrule{ }{\Apply(KRight K, V, t), r, T \leadsto_n (VRight V, \Apply(K, t+1, t+2))} \and
-        \inferrule{T[V] = st) \and X \neq V - 1}{\Apply(KCase Env LN L RN R K, V, t), r, T \leadsto st, (V, RFCase Env LN L RN R K t):r, T} \and
-        \inferrule{T[V] = \VLeft~ X }{\Apply(KCase Env LN L RN R K, V, t), r, T \leadsto_n (\bot, \Eval(L, \Env[LN := X], K', t+1))} \and
-        \inferrule{T[V] = \VRight~ Y }{\Apply(KCase Env LN L RN R K, V, t), r, T \leadsto_n (\bot, \Eval(R, \Env[RN := Y], K', t+1))} \and
+        \inferrule{ }{\Apply(KLeft K, V, t), r, T \leadsto_n (\VLeft~ V, \Apply(K, t+1, t+2)) } \and
+        \inferrule{ }{\Apply(KRight K, V, t), r, T \leadsto_n (\VRight~ V, \Apply(K, t+1, t+2))} \and
+        \inferrule{T[V] = st) \and X \neq V - 1}{\Apply(\KCase \Env~ LN~ L~ RN~ R~ K, V, t), r, T \leadsto st, (V, RFCase Env LN L RN R K t):r, T} \and
+        \inferrule{T[V] = \VLeft~ X }{\Apply(\KCase~ \Env~ LN~ L~ RN~ R~ K~, V, t), r, T \leadsto_n (\bot, \Eval(L, \Env[LN := X], K', t+1))} \and
+        \inferrule{T[V] = \VRight~ Y }{\Apply(\KCase~ \Env~ LN~ L~ RN~ R~ K~, V, t), r, T \leadsto_n (\bot, \Eval(R, \Env[RN := Y], K', t+1))} \and
     \end{mathpar}
     \caption{CEKR Transition: Apply}
 \end{figure}
